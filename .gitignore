@@ -220,3 +220,6 @@ __marimo__/
 #Blender
 *.blend1
 *.blend2
+
+*.*~
+.DS_Store
