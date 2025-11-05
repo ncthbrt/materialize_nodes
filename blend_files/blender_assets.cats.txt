@@ -8,4 +8,7 @@ VERSION 1
 
 a0fcdf3b-4133-426f-b3b9-611591b39975:Materialize:Materialize
 5f88c102-e78a-40bd-99eb-d4299b51966a:Materialize/Armature:Materialize-Armature
-e574c314-8ae2-4aec-9d57-568b4779e8fa:Materialize/Curve:Materialize-Curve
+69e731c1-bcde-4b73-a4fe-9f3c5fc1c56f:Materialize/Math:Materialize-Math
+889354c6-4643-4ca4-a04f-70b9b4095f8d:Materialize/Object:Materialize-Object
+f12e97e2-d734-4585-a75a-699c1f8e7272:Materialize/Properties:Materialize-Properties
+cbe9199b-97d9-4810-87dc-196530f5c4b5:Materialize/References:Materialize-References
