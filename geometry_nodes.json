@@ -1,0 +1,89 @@
+{
+    "Armature": {
+        "icon": "armature_data",
+        "items": [
+            {
+                "name": "Bone",
+                "icon": "bone_data"
+            },
+            {
+                "name": "Parent Bones",
+                "icon": "parent_bone_data"
+            }
+        ]
+    },
+    "Data": {
+        "icon": "data_data",
+        "items": [
+            {
+                "name": "Data Block",
+                "icon": "data_data"
+            }
+        ]
+    },
+    "Math": {
+        "icon": "math_utility",
+        "items": [
+            {
+                "name": "Bone Matrix from Head/Tail",
+                "icon": "matrix_utility"
+            },
+            {
+                "name": "Bone Matrix to Head/Tail",
+                "icon": "axes_utility"
+            }
+        ]
+    },
+    "Mesh": {
+        "icon": "mesh_data",
+        "items": [
+            {
+                "name": "Assign Weights to Vertex Group",
+                "icon": "assign_weights_data"
+            },
+            {
+                "name": "Vertex Group",
+                "icon": "vertex_group_data"
+            }
+        ]
+    },
+    "Object": {
+        "icon": "object_object",
+        "items": [
+            {
+                "name": "Object",
+                "icon": "object_object"
+            },
+            {
+                "name": "Parent Objects",
+                "icon": "parent_object_object"
+            }
+        ]
+    },
+    "Properties": {
+        "icon": "properties_stack",
+        "items": [
+            {
+                "name": "Constraint",
+                "icon": "constraint_stack"
+            },
+            {
+                "name": "Modifier",
+                "icon": "modifier_stack"
+            }
+        ]
+    },
+    "References": {
+        "icon": "reference_reference",
+        "items": [
+            {
+                "name": "Forward Reference",
+                "icon": "reference_reference"
+            },
+            {
+                "name": "Space",
+                "icon": "space_reference"
+            }
+        ]
+    }
+}
