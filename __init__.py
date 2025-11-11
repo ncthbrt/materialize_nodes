@@ -96,7 +96,7 @@ class NODE_OT_group_add(Operator):
         else:
             raise FileNotFoundError("No .blend File in directory "+ dir_path)
                 
-        with bpy.data.libraries.load(filepath, link=False) as (data_from, data_to):
+        with bpy.data.libraries.load(filepath, link=True) as (data_from, data_to):
             if self.group_name not in bpy.data.node_groups:
                 data_to.node_groups.append("MTLZ_"+self.group_name)
         added_groups = list(set(bpy.data.node_groups)-old_groups)
