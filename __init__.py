@@ -7,6 +7,8 @@ import os
 
 from bpy.types import Operator, Menu, NODE_MT_add
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
+
+from .utils import is_materialize_modifier
 from .custom_icons import get_icons, load_icons
 
 geo_node_group_cache = {}
@@ -69,14 +71,7 @@ class NODE_OT_group_add(Operator):
 
     def execute(self, context):
         old_groups = set(bpy.data.node_groups)
-
-        for file in os.listdir(dir_path):
-            if file.endswith(".blend"):
-                filepath = os.path.join(dir_path, file)
-                break
-        else:
-            raise FileNotFoundError("No .blend File in directory " + dir_path)
-
+        filepath = os.path.join(dir_path, "node_groups.blend")
         with bpy.data.libraries.load(filepath, link=True) as (data_from, data_to):
             if self.group_name not in bpy.data.node_groups:
                 data_to.node_groups.append(self.group_name)
@@ -84,8 +79,9 @@ class NODE_OT_group_add(Operator):
         for group in added_groups:
             for node in group.nodes:
                 if node.type == "GROUP":
-                    new_name = node.node_tree.name.split(".")[0]
-                    node.node_tree = bpy.data.node_groups[new_name]
+                    if node.node_tree is not None:
+                        new_name = node.node_tree.name.split(".")[0]
+                        node.node_tree = bpy.data.node_groups[new_name]
         for group in added_groups:
             if "." in group.name:
                 bpy.data.node_groups.remove(group)
@@ -101,7 +97,7 @@ class NODE_OT_group_add(Operator):
 
 def get_addon_classes(revert=False):
     """gather all classes of this plugin that have to be reg/unreg"""
-    from .materialize_operation import classes as materialize_classes
+    from .materialize_operations import classes as materialize_classes
 
     these_classes = (NODE_OT_group_add,)
     classes = these_classes + materialize_classes
@@ -142,7 +138,6 @@ def node_menu_generator():
             },
         )
         if menu_type not in node_menu_list:
-
             def generate_menu_draw(
                 name, label, icon
             ):  # Wrapper function to force unique references
@@ -173,7 +168,7 @@ def register():
     if not hasattr(bpy.types, NODE_MT_mtlz_geo_menu.bl_idname):
         bpy.utils.register_class(NODE_MT_mtlz_geo_menu)
         NODE_MT_add.append(add_mtlz_menu)
-    from .materialize_operation import extend_modifier_panel
+    from .materialize_operations import extend_modifier_panel
 
     extend_modifier_panel()
     # register every single addon classes here
@@ -195,7 +190,7 @@ def unregister():
         bpy.utils.unregister_class(NODE_MT_mtlz_geo_menu)
         NODE_MT_add.remove(add_mtlz_menu)
 
-    from .materialize_operation import remove_modifier_panel
+    from .materialize_operations import remove_modifier_panel
 
     remove_modifier_panel()
     # unregister every single addon classes here
