@@ -222,7 +222,7 @@ class OBJ_OT_template_group_add(Operator):
         index = len(ob.modifiers)
         ob.modifiers.new("Materialize", "NODES")
         modifier = ob.modifiers[index]
-        template_name = "MTLZ_Template"
+        template_name = "Materialize Template"
         filepath = os.path.join(dir_path, "node_groups.blend")
         with bpy.data.libraries.load(filepath, link=False) as (data_from, data_to):
             if template_name not in bpy.data.node_groups:

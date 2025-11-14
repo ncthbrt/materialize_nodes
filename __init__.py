@@ -122,7 +122,7 @@ def node_menu_generator():
                     text=group["name"],
                     icon_value=get_icons()[group["icon"]].icon_id,
                 )
-                props.group_name = "MTLZ_" + group["name"]
+                props.group_name = group["name"]
 
         menu_type = type(
             "NODE_MT_category_" + item[0],
