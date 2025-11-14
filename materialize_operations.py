@@ -7,7 +7,7 @@ from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerPropert
 import bl_ui.properties_data_modifier
 from .utils import get_evaluated_geometry, is_materialize_modifier
 import os
-from .parse_utils import parse_properties
+from .parse_utils import (concat_error_path, parse_root_object)
 
 dir_path = os.path.dirname(__file__)
 
@@ -20,45 +20,15 @@ def materialize_objects_impl(root_obj, geometry_set):
     pass
 
 
-def materialize_root_object(root_obj, context, transform, geometry_set):
-    pointcloud = geometry_set.instances_pointcloud()
-    if pointcloud is None:
-        return {"status": "ERROR", "message": "Malformed data"}
-    instance_references: list = geometry_set.instance_references()
-    if instance_references is None:
-        return {"status": "ERROR", "message": "Malformed data"}
-    instance_transforms = pointcloud.attributes["instance_transform"]
-    reference_indices = pointcloud.attributes[".reference_index"]
-    children = None
-    properties = None
-    data = None
-    for _, i in zip(instance_transforms.data, reference_indices.data):
-        child = instance_references[i.value]
-        properties = None
-        if child.name == "properties":
-            prop_result = parse_properties(child)
-            if prop_result["status"] == "ERROR":
-                return prop_result
-            else:
-                properties = prop_result["values"]
-        elif child.name == "data":
-            data = child
-        elif child.name == "children":
-            children = child
-        else:
-            continue
-    if children is not None:
-        pass
-    if properties is None:
-        return {
-            "status": "ERROR",
-            "message": "Missing properties for " + geometry_set.name,
-        }
-    if data is None:
-        return {"status": "ERROR", "message": "Missing data for " + geometry_set.name}
-
+def materialize_object(obj, context, child_transform, child_geometry_set):
+    object_result = parse_root_object(child_transform, child_geometry_set)
+    if object_result["status"] == "ERROR":
+        return concat_error_path(object_result, child_geometry_set.name)
+    values = object_result["values"]
+    objects = values["objects"]
+    reference_geometry = values["reference_geometry"]
+    
     return {"status": "OK"}
-
 
 def materialize_objects(obj, context):
     data = get_evaluated_geometry(obj, context)
@@ -69,9 +39,9 @@ def materialize_objects(obj, context):
     instance_transforms = instances_pointcloud.attributes["instance_transform"]
     reference_indices = instances_pointcloud.attributes[".reference_index"]
     # Top level objects. These are special because they need to be pushed down once
-    for child_transform, i in zip(instance_transforms.data, reference_indices.data):
+    for (child_transform, i) in zip(instance_transforms.data, reference_indices.data):
         child_geometry_set = instance_references[i.value]
-        result = materialize_root_object(
+        result = materialize_object(
             obj, context, child_transform, child_geometry_set
         )
         if result["status"] == "ERROR":
