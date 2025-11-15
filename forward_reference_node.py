@@ -1,2 +1,2 @@
-import bpy 
+import bpy
 import bpy.types

@@ -7,7 +7,7 @@ from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerPropert
 import bl_ui.properties_data_modifier
 from .utils import get_evaluated_geometry, is_materialize_modifier
 import os
-from .parse_utils import (concat_error_path, parse_root_object)
+from .parse_utils import concat_error_path, parse_root_object
 
 dir_path = os.path.dirname(__file__)
 
@@ -20,6 +20,10 @@ def materialize_objects_impl(root_obj, geometry_set):
     pass
 
 
+def create_data_block(data):
+    pass
+
+
 def materialize_object(obj, context, child_transform, child_geometry_set):
     object_result = parse_root_object(child_transform, child_geometry_set)
     if object_result["status"] == "ERROR":
@@ -27,8 +31,21 @@ def materialize_object(obj, context, child_transform, child_geometry_set):
     values = object_result["values"]
     objects = values["objects"]
     reference_geometry = values["reference_geometry"]
-    
+    stack = []
+    if reference_geometry is not None:
+        pass
+
+    for object in objects:
+        props = parent["properties"]
+        name = props["name"]
+        parent = object["parent"] + 1
+        if parent >= 0:
+            pass
+        else:
+            pass
+
     return {"status": "OK"}
+
 
 def materialize_objects(obj, context):
     data = get_evaluated_geometry(obj, context)
@@ -39,10 +56,10 @@ def materialize_objects(obj, context):
     instance_transforms = instances_pointcloud.attributes["instance_transform"]
     reference_indices = instances_pointcloud.attributes[".reference_index"]
     # Top level objects. These are special because they need to be pushed down once
-    for (child_transform, i) in zip(instance_transforms.data, reference_indices.data):
+    for child_transform, i in zip(instance_transforms.data, reference_indices.data):
         child_geometry_set = instance_references[i.value]
         result = materialize_object(
-            obj, context, child_transform, child_geometry_set
+            obj, context, child_transform.value, child_geometry_set
         )
         if result["status"] == "ERROR":
             return result

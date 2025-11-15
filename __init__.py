@@ -138,6 +138,7 @@ def node_menu_generator():
             },
         )
         if menu_type not in node_menu_list:
+
             def generate_menu_draw(
                 name, label, icon
             ):  # Wrapper function to force unique references
