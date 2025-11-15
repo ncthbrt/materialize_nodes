@@ -20,50 +20,190 @@ def materialize_objects_impl(root_obj, geometry_set):
     pass
 
 
-def create_data_block(data):
+def create_data_block(context, data):
+
+    # TODO: Armatures
+    # TODO: Everything else
     pass
 
 
-def materialize_object(obj, context, child_transform, child_geometry_set):
-    object_result = parse_root_object(child_transform, child_geometry_set)
-    if object_result["status"] == "ERROR":
-        return concat_error_path(object_result, child_geometry_set.name)
-    values = object_result["values"]
+def create_object(parent, context, object_data):
+
+    # TODO: Armatures
+    # TODO: Everything else
+    pass
+
+
+def update_object(parent, context, existing_object, object_data):
+
+    # TODO: Armatures
+    # TODO: Everything else
+    pass
+
+
+def update_data_block(context, data):
+    # TODO: Armatures
+    # TODO: Everything else
+    pass
+
+
+def try_find_in_children(root_obj, name):
+    children = root_obj.children
+    for child in children:
+        if "materialize_name" not in child:
+            continue
+        if child["materialize_name"] == name:
+            return child
+    return None
+
+
+def materialize_object(
+    parent, context, root_index, current_index, object_data, reference_geometry
+):
+    data_block_result = create_data_block(context, object_data)
+    if data_block_result["status"] == "ERROR":
+        return concat_error_path(data_block_result, object_data["properties"]["name"])
+    data_block = data_block_result["values"]
+
+    create_object_result = create_object(parent, context, object_data)
+    if create_object_result["status"] == "ERROR":
+        return create_object_result
+    return {"status": "OK", "value": create_object_result["value"]}
+
+
+def rematerialize_object(
+    parent,
+    context,
+    root_index,
+    current_index,
+    existing_object,
+    object_data,
+    reference_geometry,
+):
+    data_block_result = update_data_block(context, object_data)
+    if data_block_result["status"] == "ERROR":
+        return concat_error_path(data_block_result, object_data["properties"]["name"])
+    data_block = data_block_result["values"]
+
+    update_object_result = update_object(parent, context, existing_object, object_data)
+    if update_block_result["status"] == "ERROR":
+        return update_object_result
+    return {"status": "OK", "value": update_object_result["value"]}
+
+
+def materialize_objects(
+    root_obj, context, root_index, child_transform, child_geometry_set
+):
+    object_parse_result = parse_root_object(child_transform, child_geometry_set)
+    if object_parse_result["status"] == "ERROR":
+        return concat_error_path(object_parse_result, child_geometry_set.name)
+    values = object_parse_result["values"]
     objects = values["objects"]
-    reference_geometry = values["reference_geometry"]
-    stack = []
-    if reference_geometry is not None:
+    reference_geometry_data = values["reference_geometry"]
+    if reference_geometry_data is not None:
         pass
+    reference_geometry = None
+    parents = []
+    object_0_object_data = objects[0]
+    object_0_name = object_0_object_data["props"]["name"]
+    existing_object_0 = try_find_in_children(root_obj, object_0_name)
+    if existing_object_0 != None:
+        result = rematerialize_object(
+            root_obj,
+            context,
+            root_index,
+            0,
+            existing_object_0,
+            object_0_object_data,
+            reference_geometry,
+        )
+        if result["status"] == "ERROR":
+            return result
+        parents.append(result["value"])
+    else:
+        result = materialize_object(
+            root_obj, context, root_index, 0, object_0_object_data, reference_geometry
+        )
+        if result["status"] == "ERROR":
+            return result
+        parents.append(result["value"])
 
-    for object in objects:
-        props = parent["properties"]
+    errors = []
+    for i in range(1, len(objects)):
+        object_data = objects[i]
+        props = parent_index["properties"]
         name = props["name"]
-        parent = object["parent"] + 1
-        if parent >= 0:
-            pass
+        parent_index = object_data["parent"] + 1
+        if parent_index <= 0 or parent_index >= len(parents):
+            errors.append(
+                {
+                    "status": "ERROR",
+                    "message": f"Parent index {parent_index} out of range for {name}",
+                    "path": [object_0_name, name],
+                }
+            )
+        parent = parents[parent]
+        existing_object = try_find_in_children(root_obj, name)
+        materialize_result = None
+        if existing_object is not None:
+            materialize_result = rematerialize_object(
+                parent,
+                context,
+                root_index,
+                i,
+                existing_object,
+                object_data,
+                reference_geometry,
+            )
         else:
-            pass
+            materialize_result = materialize_object(
+                parent, context, root_index, i, object_data, reference_geometry
+            )
+        if materialize_result["status"] == "ERROR":
+            errors.append(materialize_result)
+        else:
+            parents.append(materialize_result["value"])
+    if len(errors) == 0:
+        return {"status": "OK"}
+    elif len(errors) == 1:
+        return concat_error_path(errors[0], object_0_name)
+    else:
+        return {
+            "status": "ERROR",
+            "message": f"Multiple errors ocurred",
+            "path": [object_0_name],
+            "errors": errors,
+        }
 
-    return {"status": "OK"}
 
-
-def materialize_objects(obj, context):
-    data = get_evaluated_geometry(obj, context)
+def materialize(root_obj, context):
+    data = get_evaluated_geometry(root_obj, context)
     instances_pointcloud: bpy.types.PointCloud = data.instances_pointcloud()
     instance_references: list = data.instance_references()
     if instances_pointcloud is None or instance_references is None:
         return {"status": "ERROR", "message": "Malformed data"}
     instance_transforms = instances_pointcloud.attributes["instance_transform"]
     reference_indices = instances_pointcloud.attributes[".reference_index"]
+    errors = []
     # Top level objects. These are special because they need to be pushed down once
     for child_transform, i in zip(instance_transforms.data, reference_indices.data):
         child_geometry_set = instance_references[i.value]
-        result = materialize_object(
-            obj, context, child_transform.value, child_geometry_set
+        result = materialize_objects(
+            root_obj, context, child_transform.value, child_geometry_set
         )
         if result["status"] == "ERROR":
-            return result
-    return {"status": "OK"}
+            errors.append(result)
+    if len(errors) == 0:
+        return {"status": "OK"}
+    elif len(errors) == 1:
+        return concat_error_path(errors[0], root_obj.name)
+    else:
+        return {
+            "status": "ERROR",
+            "message": f"Multiple errors ocurred",
+            "path": [root_obj.name],
+            "errors": errors,
+        }
 
 
 class Modifier_OT_MaterializeOperator(Operator):
@@ -81,7 +221,7 @@ class Modifier_OT_MaterializeOperator(Operator):
 
     def execute(self, context):
         obj = context.object
-        materialize_objects(obj, context)
+        materialize(obj, context)
         obj.data["materialized"] = True
         return {"FINISHED"}
 
@@ -101,7 +241,7 @@ class Modifier_OT_RematerializeOperator(Operator):
 
     def execute(self, context):
         ob = context.object
-        materialize_objects(ob, context)
+        materialize(ob, context)
         ob.data["materialized"] = True
         return {"FINISHED"}
 
