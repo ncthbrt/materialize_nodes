@@ -74,6 +74,10 @@
             {
                 "name": "Space",
                 "icon": "space_reference"
+            },
+            {
+                "name": "Selection",
+                "icon": "selection_reference"
             }
         ]
     }
