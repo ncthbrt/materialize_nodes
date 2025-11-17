@@ -11,7 +11,7 @@
                 "icon": "parent_bone_data"
             }
         ]
-    },    
+    },
     "Math": {
         "icon": "math_utility",
         "items": [
@@ -68,9 +68,8 @@
         "icon": "reference_reference",
         "items": [
             {
-                "name": "Forward Reference",
-                "icon": "reference_reference",
-                "custom_node": true                
+                "name": "Reference",
+                "icon": "reference_reference"
             },
             {
                 "name": "Space",

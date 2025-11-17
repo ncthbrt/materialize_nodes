@@ -7,6 +7,38 @@ def concat_error_path(error, part):
     return error
 
 
+type_ids = {
+    1: "OBJECT",
+    2: "BONE",
+    3: "DATA",
+    4: "PROPERTIES",
+    5: "CHILDREN",
+    6: "REFERENCE_GEOMETRY",
+    7: "GEOMETRY",
+}
+
+data_block_type_ids = {
+    0: "ARMATURE",
+    1: "CURVE",
+    2: "GREASE_PENCIL",
+    3: "MESH",
+    4: "POINT_CLOUD",
+    5: "VOLUME",
+    6: "INSTANCE",
+}
+
+
+def _reverse_dict(d):
+    result = dict()
+    for k, v in d.items():
+        result[v] = k
+    return result
+
+
+reversed_type_ids = _reverse_dict(type_ids)
+reversed_data_block_type_ids = _reverse_dict(data_block_type_ids)
+
+
 def parse_vertex_groups(geometry_set):
     pointcloud = geometry_set.instances_pointcloud()
     instance_references: list = geometry_set.instance_references()
@@ -102,34 +134,148 @@ def parse_properties(geometry_set):
                 values["vertex_grups"] = vertex_groups
     return {"status": "OK", "values": values}
 
+
+def parse_bones(geometry_set):
+    return {
+        "status": "ERROR",
+        "message": "Bones are not yet supported",
+        "path": ["children"],
+    }
+
+
+def parse_armature(geometry_set):
+    pointcloud = geometry_set.instances_pointcloud()
+    instance_references: list = geometry_set.instance_references()
+    bones = []
+    properties = None
+    if pointcloud is None or instance_references is None:
+        return {"status": "ERROR", "message": "Malformed data", "path": ["attributes"]}
+    reference_indices = pointcloud.attributes[".reference_index"]
+    type_ids = pointcloud.attributes["type"]
+    for i, type_id in zip(reference_indices.data, type_ids.data):
+        child = instance_references[i.value]
+        if reversed_data_block_type_ids["CHILDREN"] == type_id.value:
+            bone_result = parse_bones(child)
+            if bone_result["status"] == "ERROR":
+                return concat_error_path(bone_result, "children")
+            bones = bone_result["value"]
+        elif reversed_data_block_type_ids["PROPERTIES"] == type_id.value:
+            parse_properties(child)
+
+    return {
+        "status": "ERROR",
+        "message": "Armatures are not yet supported",
+        "path": [],
+    }
+
+
+def parse_geometry(geometry_set):
+    pointcloud = geometry_set.instances_pointcloud()
+    instance_references: list = geometry_set.instance_references()
+    data_type = None
+    values = None
+    if pointcloud is None or instance_references is None:
+        return {"status": "ERROR", "message": "Malformed data", "path": ["attributes"]}
+    reference_indices = pointcloud.attributes[".reference_index"]
+    type_ids = pointcloud.attributes["type"]
+    for i, type_id in zip(reference_indices.data, type_ids.data):
+        data_type = data_block_type_ids[type_id.value]
+        child = instance_references[i.value]
+        if data_type == "ARMATURE":
+            armature_result = parse_armature(child)
+            if armature_result["status"] == "ERROR":
+                return concat_error_path(armature_result, "geometry")
+            values = armature_result["values"]
+        else:
+            values = instance_references[i.value]
+    if values is None:
+        return {"status": "ERROR", "message": "Missing geometry", "path": ["geometry"]}
+    if data_type is None:
+        return {
+            "status": "ERROR",
+            "message": "Missing geometry type",
+            "path": ["geometry", "type"],
+        }
+    return {"status": "OK", "values": {"type": data_type, "values": values}}
+
+
 def parse_object_data(geometry_set):
-    return {"status": "OK", "values": dict()}
+    pointcloud = geometry_set.instances_pointcloud()
+    instance_references: list = geometry_set.instance_references()
+    if pointcloud is None or instance_references is None:
+        return {"status": "ERROR", "message": "Malformed data", "path": ["data"]}
+
+    reference_indices = pointcloud.attributes[".reference_index"]
+    type_ids = pointcloud.attributes["type"]
+    geometry = None
+    properties = None
+    for i, type_id in zip(reference_indices.data, type_ids.data):
+        child = instance_references[i.value]
+        if reversed_type_ids["GEOMETRY"] == type_id.value:
+            geometry_result = parse_geometry(child)
+            if geometry_result["status"] == "ERROR":
+                return concat_error_path(geometry_result, "data")
+            geometry = geometry_result["values"]
+        elif reversed_type_ids["PROPERTIES"] == type_id.value:
+            properties_result = parse_properties(child)
+            if properties_result["status"] == "ERROR":
+                return concat_error_path(properties_result, "data")
+            properties = properties_result["values"]
+    if geometry is None:
+        return {
+            "status": "ERROR",
+            "message": "Missing geometry data",
+            "path": ["data", "geometry"],
+        }
+    if properties is None:
+        return {
+            "status": "ERROR",
+            "message": "Missing properties",
+            "path": ["data", "properties"],
+        }
+
+    return {"status": "OK", "values": {"geometry": geometry, "properties": properties}}
+
 
 def parse_object(transform, parent, geometry_set):
     pointcloud = geometry_set.instances_pointcloud()
     instance_references: list = geometry_set.instance_references()
     if pointcloud is None or instance_references is None:
         return {"status": "ERROR", "message": "Malformed data", "path": []}
-
     reference_indices = pointcloud.attributes[".reference_index"]
+    type_ids = pointcloud.attributes["type"]
     properties = None
     data = None
-    for i in reference_indices.data:
+    for i, type_id in zip(reference_indices.data, type_ids.data):
         child = instance_references[i.value]
-        name = child.name
-        if name == "properties":
-            properties = parse_properties(child)
-        elif name == "data":
+        if reversed_type_ids["PROPERTIES"] == type_id.value:
+            properties_result = parse_properties(child)
+            if properties_result["status"] == "ERROR":
+                return concat_error_path(properties_result, "data")
+            properties = properties_result["values"]
+        elif reversed_type_ids["DATA"] == type_id.value:
             data = parse_object_data(child)
     if data is None:
         return {"status": "ERROR", "message": "Missing data", "path": ["data"]}
     if properties is None:
-        return {"status": "ERROR", "message": "Missing properties", "path": ["properties"]}
-    
-    return {"status": "OK", "values": {"data": data, "properties": properties, "transform": transform, "parent": parent}}
+        return {
+            "status": "ERROR",
+            "message": "Missing properties",
+            "path": ["properties"],
+        }
+
+    return {
+        "status": "OK",
+        "values": {
+            "data": data,
+            "properties": properties,
+            "transform": transform,
+            "parent": parent,
+        },
+    }
 
 
-def parse_children_object(geometry_set):
+def parse_children_objects(geometry_set):
     pointcloud = geometry_set.instances_pointcloud()
     instance_references: list = geometry_set.instance_references()
     if pointcloud is None or instance_references is None:
@@ -137,12 +283,14 @@ def parse_children_object(geometry_set):
     reference_indices = pointcloud.attributes[".reference_index"]
     instance_transforms = pointcloud.attributes["instance_transform"]
     parents = pointcloud.attributes["parent"]
-    children = []    
-    for (transform, i, parent) in zip(instance_transforms.data, reference_indices.data, parents.data):
+    children = []
+    for transform, i, parent in zip(
+        instance_transforms.data, reference_indices.data, parents.data
+    ):
         child = instance_references[i.value]
         object_result = parse_object(transform.value, parent.value, child)
         if object_result["status"] == "ERROR":
-            return concat_error_path(object_result, child.name)            
+            return concat_error_path(object_result, child.name)
         children.append(object_result["values"])
     return {"status": "OK", "values": children}
 
@@ -150,11 +298,16 @@ def parse_children_object(geometry_set):
 def parse_reference_geometry(geometry_set):
     return {"status": "OK", "values": geometry_set.mesh}
 
+
 def parse_root_object(transform, geometry_set):
     pointcloud = geometry_set.instances_pointcloud()
     instance_references: list = geometry_set.instance_references()
     if pointcloud is None or instance_references is None:
-        return {"status": "ERROR", "message": "Malformed data", "path": [geometry_set.name]}        
+        return {
+            "status": "ERROR",
+            "message": "Malformed data",
+            "path": [geometry_set.name],
+        }
     reference_indices = pointcloud.attributes[".reference_index"]
     children = None
     properties = None
@@ -164,37 +317,50 @@ def parse_root_object(transform, geometry_set):
         child = instance_references[i.value]
         properties = None
         if child.name == "properties":
-            prop_result = parse_properties(child)
-            if prop_result["status"] == "ERROR":
-                return concat_error_path(prop_result, i.value)            
-            properties = prop_result["values"]
+            properties_result = parse_properties(child)
+            if properties_result["status"] == "ERROR":
+                return concat_error_path(properties_result, "data")
+            properties = properties_result["values"]
         elif child.name == "data":
-            data_result = parse_properties(child)
+            data_result = parse_object_data(child)
             if data_result["status"] == "ERROR":
-                return concat_error_path(data_result, i.value)            
+                return concat_error_path(data_result, i.value)
             data = data_result["values"]
         elif child.name == "children":
-            children_result = parse_children_object(child)
+            children_result = parse_children_objects(child)
             if children_result["status"] == "ERROR":
-                return concat_error_path(children_result, i.value)            
+                return concat_error_path(children_result, i.value)
             children = children_result["values"]
         elif child.name == "reference_geometry":
-            reference_geometry_result = parse_children_object(child)
+            reference_geometry_result = parse_reference_geometry(child)
             if reference_geometry_result["status"] == "ERROR":
-                return concat_error_path(reference_geometry_result, i.value)            
+                return concat_error_path(reference_geometry_result, i.value)
             reference_geometry = reference_geometry_result["values"]
         else:
             continue
-    
+
     if children is not None:
         objects: list = children
     if properties is None:
         return {
             "status": "ERROR",
             "message": "Missing properties for " + geometry_set.name,
-            "path": ["properties"]
+            "path": ["properties"],
         }
     if data is None:
-        return {"status": "ERROR", "message": "Missing data for " + geometry_set.name, "path": ["data"]}
-    objects.insert(0, {"data": data, "properties": properties, "parent": -2, transform: transform})
-    return {"status": "OK", "values": { "objects": objects, "reference_geometry": reference_geometry, transform: transform }}
+        return {
+            "status": "ERROR",
+            "message": "Missing data for " + geometry_set.name,
+            "path": ["data"],
+        }
+    objects.insert(
+        0, {"data": data, "properties": properties, "parent": -2, transform: transform}
+    )
+    return {
+        "status": "OK",
+        "values": {
+            "objects": objects,
+            "reference_geometry": reference_geometry,
+            transform: transform,
+        },
+    }

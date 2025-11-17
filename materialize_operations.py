@@ -5,37 +5,44 @@ from bpy.types import (
 )
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
 import bl_ui.properties_data_modifier
-from .utils import get_evaluated_geometry, is_materialize_modifier
+from .utils import get_evaluated_geometry, is_materialize_modifier, is_materialize_child
 import os
 from .parse_utils import concat_error_path, parse_root_object
 
 dir_path = os.path.dirname(__file__)
 
 
-# def gather_child_objects(root_obj, context, transform, children_geometry_set):
-#     pass
-
-
-def materialize_objects_impl(root_obj, geometry_set):
-    pass
-
-
 def create_data_block(context, data):
+    if data["type"] == "ARMATURE":
+        # TODO: Armatures
+        return {
+            "status": "ERROR",
+            "path": ["data"],
+            "message": "Armatures are not yet supported",
+        }
+    else:
+        data_block = bpy.data.meshes.new(data["properties"]["name"])
+        return {"status": "OK", "value": data_block}
 
-    # TODO: Armatures
-    # TODO: Everything else
-    pass
 
+def create_object(root, parent, context, object_data, data_block):
+    name = object_data["properties"]["name"]
+    new_obj = bpy.data.objects.new(object_data["properties"]["name"], data_block)
+    new_obj.parent = parent
+    context.collection.objects.link(data_block)
+    new_obj["materialize_name"] = name
+    new_obj["materialize_type"] = object_data["data"]["type"]
+    node_modifier: bpy.types.NodesModifier = new_obj.modifiers.new(
+        "Materialize", "NODES"
+    )  # type: ignore
 
-def create_object(parent, context, object_data):
+    new_obj["materialize"] = "CHILD"
+    # node_modifier.node_group =
 
-    # TODO: Armatures
-    # TODO: Everything else
-    pass
+    return {"status": "OK", "value": new_obj}
 
 
 def update_object(parent, context, existing_object, object_data):
-
     # TODO: Armatures
     # TODO: Everything else
     pass
@@ -185,12 +192,14 @@ def materialize(root_obj, context):
     instance_transforms = instances_pointcloud.attributes["instance_transform"]
     reference_indices = instances_pointcloud.attributes[".reference_index"]
     errors = []
+    index = 0
     # Top level objects. These are special because they need to be pushed down once
     for child_transform, i in zip(instance_transforms.data, reference_indices.data):
         child_geometry_set = instance_references[i.value]
         result = materialize_objects(
-            root_obj, context, child_transform.value, child_geometry_set
+            root_obj, context, index, child_transform.value, child_geometry_set
         )
+        index += 1
         if result["status"] == "ERROR":
             errors.append(result)
     if len(errors) == 0:
@@ -204,6 +213,15 @@ def materialize(root_obj, context):
             "path": [root_obj.name],
             "errors": errors,
         }
+
+
+def format_errors(errors):
+    result = ""
+    for error in errors:
+        path = str.join("/", error["path"])
+        message = error["message"]
+        result += f"{path}: {message}\n"
+    return result
 
 
 class Modifier_OT_MaterializeOperator(Operator):
@@ -221,7 +239,13 @@ class Modifier_OT_MaterializeOperator(Operator):
 
     def execute(self, context):
         obj = context.object
-        materialize(obj, context)
+        materialize_result = materialize(obj, context)
+        if materialize_result["status"] == "ERROR":
+            msg = materialize_result["message"]
+            self.report(
+                {"ERROR_INVALID_INPUT"},
+                f"{msg}\n" + format_errors(materialize_result["errors"]),
+            )
         obj.data["materialized"] = True
         return {"FINISHED"}
 
@@ -298,6 +322,8 @@ def draw_materialize_button(self, context):
         return
     layout = layout.row()
     layout.enabled = True
+    if is_materialize_child(obj):
+        return
     if not is_materialize_modifier(obj):
         layout.operator(
             OBJ_OT_template_group_add.bl_idname,

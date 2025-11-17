@@ -1,14 +1,20 @@
 import bpy.types
 
 
+def is_materialize_child(obj):
+    if "materialize" in obj:
+        return obj["materialize"] == "CHILD"
+    return False
+
+
 def is_materialize_modifier(obj):
     index = len(obj.modifiers) - 1
+    if "materialize" in obj:
+        return obj["materialize"] != "CHILD"
     if index < 0:
         return False
     modifier = obj.modifiers[index]
     if modifier.type != "NODES":
-        return False
-    if "materialize" not in modifier.node_group:
         return False
     return (obj, modifier)
 
