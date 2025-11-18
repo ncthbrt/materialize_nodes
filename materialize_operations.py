@@ -13,7 +13,7 @@ dir_path = os.path.dirname(__file__)
 
 
 def create_data_block(context, data):
-    if data["type"] == "ARMATURE":
+    if data["data"]["geometry"]["type"] == "ARMATURE":
         # TODO: Armatures
         return {
             "status": "ERROR",
@@ -29,9 +29,9 @@ def create_object(root, parent, context, object_data, data_block):
     name = object_data["properties"]["name"]
     new_obj = bpy.data.objects.new(object_data["properties"]["name"], data_block)
     new_obj.parent = parent
-    context.collection.objects.link(data_block)
+    context.collection.objects.link(new_obj)
     new_obj["materialize_name"] = name
-    new_obj["materialize_type"] = object_data["data"]["type"]
+    new_obj["materialize_type"] = object_data["data"]["geometry"]["type"]
     node_modifier: bpy.types.NodesModifier = new_obj.modifiers.new(
         "Materialize", "NODES"
     )  # type: ignore
@@ -42,16 +42,24 @@ def create_object(root, parent, context, object_data, data_block):
     return {"status": "OK", "value": new_obj}
 
 
-def update_object(parent, context, existing_object, object_data):
+def update_object(root, parent, context, existing_object, object_data):
     # TODO: Armatures
     # TODO: Everything else
-    pass
+    return {
+        "status": "ERROR",
+        "message": "Cannot yet update objects",
+        "path": [existing_object.name],
+    }
 
 
 def update_data_block(context, data):
     # TODO: Armatures
     # TODO: Everything else
-    pass
+    return {
+        "status": "ERROR",
+        "message": "Cannot yet update data-blocks",
+        "path": [],
+    }
 
 
 def try_find_in_children(root_obj, name):
@@ -65,20 +73,21 @@ def try_find_in_children(root_obj, name):
 
 
 def materialize_object(
-    parent, context, root_index, current_index, object_data, reference_geometry
+    root, parent, context, root_index, current_index, object_data, reference_geometry
 ):
     data_block_result = create_data_block(context, object_data)
     if data_block_result["status"] == "ERROR":
         return concat_error_path(data_block_result, object_data["properties"]["name"])
-    data_block = data_block_result["values"]
+    data_block = data_block_result["value"]
 
-    create_object_result = create_object(parent, context, object_data)
+    create_object_result = create_object(root, parent, context, object_data, data_block)
     if create_object_result["status"] == "ERROR":
         return create_object_result
     return {"status": "OK", "value": create_object_result["value"]}
 
 
 def rematerialize_object(
+    root,
     parent,
     context,
     root_index,
@@ -92,7 +101,9 @@ def rematerialize_object(
         return concat_error_path(data_block_result, object_data["properties"]["name"])
     data_block = data_block_result["values"]
 
-    update_object_result = update_object(parent, context, existing_object, object_data)
+    update_object_result = update_object(
+        root, parent, context, existing_object, object_data
+    )
     if update_block_result["status"] == "ERROR":
         return update_object_result
     return {"status": "OK", "value": update_object_result["value"]}
@@ -112,10 +123,11 @@ def materialize_objects(
     reference_geometry = None
     parents = []
     object_0_object_data = objects[0]
-    object_0_name = object_0_object_data["props"]["name"]
+    object_0_name = object_0_object_data["properties"]["name"]
     existing_object_0 = try_find_in_children(root_obj, object_0_name)
     if existing_object_0 != None:
         result = rematerialize_object(
+            root_obj,
             root_obj,
             context,
             root_index,
@@ -129,7 +141,13 @@ def materialize_objects(
         parents.append(result["value"])
     else:
         result = materialize_object(
-            root_obj, context, root_index, 0, object_0_object_data, reference_geometry
+            root_obj,
+            root_obj,
+            context,
+            root_index,
+            0,
+            object_0_object_data,
+            reference_geometry,
         )
         if result["status"] == "ERROR":
             return result
@@ -154,6 +172,7 @@ def materialize_objects(
         materialize_result = None
         if existing_object is not None:
             materialize_result = rematerialize_object(
+                root_obj,
                 parent,
                 context,
                 root_index,
@@ -164,7 +183,13 @@ def materialize_objects(
             )
         else:
             materialize_result = materialize_object(
-                parent, context, root_index, i, object_data, reference_geometry
+                root_obj,
+                parent,
+                context,
+                root_index,
+                i,
+                object_data,
+                reference_geometry,
             )
         if materialize_result["status"] == "ERROR":
             errors.append(materialize_result)
@@ -197,7 +222,11 @@ def materialize(root_obj, context):
     for child_transform, i in zip(instance_transforms.data, reference_indices.data):
         child_geometry_set = instance_references[i.value]
         result = materialize_objects(
-            root_obj, context, index, child_transform.value, child_geometry_set
+            root_obj,
+            context,
+            index,
+            child_transform.value.copy().freeze(),
+            child_geometry_set,
         )
         index += 1
         if result["status"] == "ERROR":
@@ -205,7 +234,13 @@ def materialize(root_obj, context):
     if len(errors) == 0:
         return {"status": "OK"}
     elif len(errors) == 1:
-        return concat_error_path(errors[0], root_obj.name)
+        error = concat_error_path(errors[0], root_obj.name)
+        return {
+            "status": "ERROR",
+            "message": "",
+            "path": error["path"],
+            "errors": [error],
+        }
     else:
         return {
             "status": "ERROR",
@@ -216,12 +251,12 @@ def materialize(root_obj, context):
 
 
 def format_errors(errors):
-    result = ""
+    result = []
     for error in errors:
         path = str.join("/", error["path"])
         message = error["message"]
-        result += f"{path}: {message}\n"
-    return result
+        result.append(f"{path}: {message}")
+    return str.join("\n", result)
 
 
 class Modifier_OT_MaterializeOperator(Operator):
@@ -264,9 +299,15 @@ class Modifier_OT_RematerializeOperator(Operator):
         return ob
 
     def execute(self, context):
-        ob = context.object
-        materialize(ob, context)
-        ob.data["materialized"] = True
+        obj = context.object
+        materialize_result = materialize(obj, context)
+        if materialize_result["status"] == "ERROR":
+            msg = materialize_result["message"]
+            self.report(
+                {"ERROR_INVALID_INPUT"},
+                f"{msg}\n" + format_errors(materialize_result["errors"]),
+            )
+        obj.data["materialized"] = True
         return {"FINISHED"}
 
     def invoke(self, context, event):
@@ -313,7 +354,12 @@ class OBJ_OT_template_group_add(Operator):
         return {"FINISHED"}
 
 
+extended = False
+
+
 def draw_materialize_button(self, context):
+    global extended
+    extended = True
     from .custom_icons import get_icons
 
     layout = self.layout
@@ -325,11 +371,7 @@ def draw_materialize_button(self, context):
     if is_materialize_child(obj):
         return
     if not is_materialize_modifier(obj):
-        layout.operator(
-            OBJ_OT_template_group_add.bl_idname,
-            text="Add Materialize Modifier",
-            icon_value=get_icons()["materialize_icon"].icon_id,
-        )
+        return
     elif "materialized" not in obj.data:
         layout.operator(
             Modifier_OT_MaterializeOperator.bl_idname,
@@ -344,13 +386,40 @@ def draw_materialize_button(self, context):
         )
 
 
+def draw_add_materialize_modifier(self, context):
+    global extended
+    extended = True
+    from .custom_icons import get_icons
+
+    obj = context.object
+    layout = self.layout
+    if not obj:
+        return
+    if not is_materialize_modifier(obj):
+        layout.operator(
+            OBJ_OT_template_group_add.bl_idname,
+            text="Materialize Nodes",
+            icon_value=get_icons()["materialize_icon"].icon_id,
+        )
+
+
 def extend_modifier_panel():
-    if not hasattr(bpy.types, "Modifier_OT_MaterializeOperator"):
+    global extended
+    if not extended:
         bl_ui.properties_data_modifier.DATA_PT_modifiers.append(draw_materialize_button)
+        bl_ui.properties_data_modifier.OBJECT_MT_modifier_add.append(
+            draw_add_materialize_modifier
+        )
+    extended = True
 
 
 def remove_modifier_panel():
+    global extended
+    extended = False
     bl_ui.properties_data_modifier.DATA_PT_modifiers.remove(draw_materialize_button)
+    bl_ui.properties_data_modifier.OBJECT_MT_modifier_add.remove(
+        draw_add_materialize_modifier
+    )
 
 
 classes = (
