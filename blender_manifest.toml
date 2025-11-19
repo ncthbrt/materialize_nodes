@@ -5,8 +5,11 @@ version = "0.0.1"
 tagline = "Materialize. Create Objects, Armatures, Modifiers, and Constraints from Geometry Nodes."
 maintainer = "Natalie Cuthbert <natalie@cuthbert.co.za>"
 type = "add-on"
-tags = ["Geometry Nodes","Node"]
+tags = ["Geometry Nodes", "Node"]
 blender_version_min = "5.0.0"
 license = ["SPDX:GPL-3.0-or-later"]
 website = "https://github.com/ncthbrt/materialize_nodes"
 copyright = ["2025 Natalie Cuthbert <natalie@cuthbert.co.za>"]
+wheels = ["./wheels/platformdirs-4.5.0-py3-none-any.whl"]
+[permissions]
+files = "Load Materialize Node Groups"

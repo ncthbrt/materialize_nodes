@@ -22,22 +22,37 @@ def create_data_block(context, data):
         }
     else:
         data_block = bpy.data.meshes.new(data["properties"]["name"])
-        return {"status": "OK", "value": data_block}
+        from .materialize_blend_loader import load_node_group
+
+        return {
+            "status": "OK",
+            "values": {
+                "data_block": data_block,
+                "node_group": load_node_group("Materialize Geometry"),
+            },
+        }
 
 
 def create_object(root, parent, context, object_data, data_block):
     name = object_data["properties"]["name"]
-    new_obj = bpy.data.objects.new(object_data["properties"]["name"], data_block)
+    print(name)
+    new_obj = bpy.data.objects.new(name, data_block["data_block"])
     new_obj.parent = parent
     context.collection.objects.link(new_obj)
     new_obj["materialize_name"] = name
-    new_obj["materialize_type"] = object_data["data"]["geometry"]["type"]
+    type = object_data["data"]["geometry"]["type"]
+    new_obj["materialize_type"] = type
+
     node_modifier: bpy.types.NodesModifier = new_obj.modifiers.new(
         "Materialize", "NODES"
     )  # type: ignore
 
+    from .materialize_blend_loader import load_node_group
+
+    if "node_group" in data_block:
+        node_modifier.node_group = data_block["node_group"]
+    node_modifier.node_group["Index"] = 10
     new_obj["materialize"] = "CHILD"
-    # node_modifier.node_group =
 
     return {"status": "OK", "value": new_obj}
 
@@ -78,12 +93,12 @@ def materialize_object(
     data_block_result = create_data_block(context, object_data)
     if data_block_result["status"] == "ERROR":
         return concat_error_path(data_block_result, object_data["properties"]["name"])
-    data_block = data_block_result["value"]
+    data_block = data_block_result["values"]
 
     create_object_result = create_object(root, parent, context, object_data, data_block)
     if create_object_result["status"] == "ERROR":
         return create_object_result
-    return {"status": "OK", "value": create_object_result["value"]}
+    return {"status": "OK", "value": create_object_result["values"]}
 
 
 def rematerialize_object(
@@ -100,13 +115,12 @@ def rematerialize_object(
     if data_block_result["status"] == "ERROR":
         return concat_error_path(data_block_result, object_data["properties"]["name"])
     data_block = data_block_result["values"]
-
     update_object_result = update_object(
         root, parent, context, existing_object, object_data
     )
-    if update_block_result["status"] == "ERROR":
+    if update_object_result["status"] == "ERROR":
         return update_object_result
-    return {"status": "OK", "value": update_object_result["value"]}
+    return {"status": "OK", "value": update_object_result["values"]}
 
 
 def materialize_objects(
@@ -335,21 +349,16 @@ class OBJ_OT_template_group_add(Operator):
         return result == False
 
     def execute(self, context):
-        import bpy.types
+        from .materialize_blend_loader import load_node_group
 
         ob = context.object
         index = len(ob.modifiers)
         ob.modifiers.new("Materialize", "NODES")
         modifier = ob.modifiers[index]
         template_name = "Materialize Template"
-        filepath = os.path.join(dir_path, "node_groups.blend")
-        with bpy.data.libraries.load(filepath, link=False) as (data_from, data_to):
-            if template_name not in bpy.data.node_groups:
-                data_to.node_groups.append(template_name)
-        copy = bpy.data.node_groups[template_name].copy()
-        name = ob.name + " Materalize Group"
+        copy = load_node_group(template_name).copy()
+        name = f"{ob.name} Materalize Group"
         copy.name = name
-        copy["materialize"] = True
         modifier.node_group = copy
         return {"FINISHED"}
 

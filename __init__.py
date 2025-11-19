@@ -7,6 +7,7 @@ import os
 
 from bpy.types import Operator, Menu, NODE_MT_add
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
+from .materialize_blend_loader import create_or_update_linked_lib
 
 from .utils import is_materialize_modifier
 from .custom_icons import get_icons, load_icons
@@ -70,28 +71,12 @@ class NODE_OT_group_add(Operator):
         return context.space_data.node_tree
 
     def execute(self, context):
-        old_groups = set(bpy.data.node_groups)
-        filepath = os.path.join(dir_path, "node_groups.blend")
-        with bpy.data.libraries.load(filepath, link=True) as (data_from, data_to):
-            if self.group_name not in bpy.data.node_groups:
-                data_to.node_groups.append(self.group_name)
-        added_groups = list(set(bpy.data.node_groups) - old_groups)
-        for group in added_groups:
-            for node in group.nodes:
-                if node.type == "GROUP":
-                    if node.node_tree is not None:
-                        new_name = node.node_tree.name.split(".")[0]
-                        node.node_tree = bpy.data.node_groups[new_name]
-        for group in added_groups:
-            if "." in group.name:
-                bpy.data.node_groups.remove(group)
+        from .materialize_blend_loader import load_node_group
 
         bpy.ops.node.add_node(type="GeometryNodeGroup")
         node = context.selected_nodes[0]
-
-        node.node_tree = bpy.data.node_groups[self.group_name]
+        node.node_tree = load_node_group(self.group_name)
         bpy.ops.transform.translate("INVOKE_DEFAULT")
-
         return {"FINISHED"}
 
 
@@ -158,10 +143,15 @@ def node_menu_generator():
             node_menu_list.append(menu_type)
 
 
+registered = False
+
+
 def register():
     """main addon register"""
     global geo_node_group_cache
-
+    global registered
+    if registered == True:
+        return
     with open(os.path.join(os.path.dirname(__file__), "geometry_nodes.json"), "r") as f:
         geo_node_group_cache = json.loads(f.read())
     load_icons()
@@ -176,13 +166,19 @@ def register():
     for cls in get_addon_classes():
         bpy.utils.register_class(cls)
 
-    node_menu_generator()
+    create_or_update_linked_lib()
 
+    node_menu_generator()
+    registered = True
     return None
 
 
 def unregister():
     """main addon un-register"""
+    global registered
+    if registered == False:
+        return
+
     from .custom_icons import get_icons
 
     bpy.utils.previews.remove(get_icons())
@@ -199,5 +195,5 @@ def unregister():
         bpy.utils.unregister_class(cls)
 
     clean_modules()
-
+    registered = False
     return None
