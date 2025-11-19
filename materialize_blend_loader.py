@@ -40,8 +40,6 @@ def create_or_update_linked_lib():
 
 
 def load():
-    import bpy
-
     path = get_path()
     return bpy.data.libraries.load(path, link=True)
 

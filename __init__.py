@@ -166,9 +166,10 @@ def register():
     for cls in get_addon_classes():
         bpy.utils.register_class(cls)
 
+    node_menu_generator()
+
     create_or_update_linked_lib()
 
-    node_menu_generator()
     registered = True
     return None
 

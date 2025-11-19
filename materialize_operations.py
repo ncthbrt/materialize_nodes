@@ -13,6 +13,9 @@ dir_path = os.path.dirname(__file__)
 
 
 def create_data_block(context, data):
+    print("data", end="")
+    print(data)
+
     if data["data"]["geometry"]["type"] == "ARMATURE":
         # TODO: Armatures
         return {
@@ -21,19 +24,21 @@ def create_data_block(context, data):
             "message": "Armatures are not yet supported",
         }
     else:
-        data_block = bpy.data.meshes.new(data["properties"]["name"])
+        data_block = bpy.data.meshes.new(data["data"]["properties"]["name"])
         from .materialize_blend_loader import load_node_group
 
         return {
             "status": "OK",
             "values": {
                 "data_block": data_block,
-                "node_group": load_node_group("Materialize Geometry"),
+                "node_group": load_node_group("Materialized Geometry"),
             },
         }
 
 
-def create_object(root, parent, context, object_data, data_block):
+def create_object(
+    root, parent, context, object_data, data_block, root_index, current_index
+):
     name = object_data["properties"]["name"]
     print(name)
     new_obj = bpy.data.objects.new(name, data_block["data_block"])
@@ -47,14 +52,14 @@ def create_object(root, parent, context, object_data, data_block):
         "Materialize", "NODES"
     )  # type: ignore
 
-    from .materialize_blend_loader import load_node_group
-
     if "node_group" in data_block:
         node_modifier.node_group = data_block["node_group"]
-    node_modifier.node_group["Index"] = 10
+        node_modifier["Socket_5"] = root
+        node_modifier["Socket_2"] = root_index
+        node_modifier["Socket_3"] = current_index
     new_obj["materialize"] = "CHILD"
 
-    return {"status": "OK", "value": new_obj}
+    return {"status": "OK", "values": new_obj}
 
 
 def update_object(root, parent, context, existing_object, object_data):
@@ -95,10 +100,12 @@ def materialize_object(
         return concat_error_path(data_block_result, object_data["properties"]["name"])
     data_block = data_block_result["values"]
 
-    create_object_result = create_object(root, parent, context, object_data, data_block)
+    create_object_result = create_object(
+        root, parent, context, object_data, data_block, root_index, current_index
+    )
     if create_object_result["status"] == "ERROR":
         return create_object_result
-    return {"status": "OK", "value": create_object_result["values"]}
+    return {"status": "OK", "values": create_object_result["values"]}
 
 
 def rematerialize_object(
@@ -120,7 +127,7 @@ def rematerialize_object(
     )
     if update_object_result["status"] == "ERROR":
         return update_object_result
-    return {"status": "OK", "value": update_object_result["values"]}
+    return {"status": "OK", "values": update_object_result["values"]}
 
 
 def materialize_objects(
@@ -145,35 +152,35 @@ def materialize_objects(
             root_obj,
             context,
             root_index,
-            0,
+            -1,
             existing_object_0,
             object_0_object_data,
             reference_geometry,
         )
         if result["status"] == "ERROR":
             return result
-        parents.append(result["value"])
+        parents.append(result["values"])
     else:
         result = materialize_object(
             root_obj,
             root_obj,
             context,
             root_index,
-            0,
+            -1,
             object_0_object_data,
             reference_geometry,
         )
         if result["status"] == "ERROR":
             return result
-        parents.append(result["value"])
+        parents.append(result["values"])
 
     errors = []
     for i in range(1, len(objects)):
         object_data = objects[i]
-        props = parent_index["properties"]
-        name = props["name"]
-        parent_index = object_data["parent"] + 1
-        if parent_index <= 0 or parent_index >= len(parents):
+        properties = object_data["properties"]
+        name = properties["name"]
+        parent_index = object_data["parent"]
+        if parent_index < 0 or parent_index >= len(parents):
             errors.append(
                 {
                     "status": "ERROR",
@@ -181,7 +188,8 @@ def materialize_objects(
                     "path": [object_0_name, name],
                 }
             )
-        parent = parents[parent]
+            continue
+        parent = parents[parent_index]
         existing_object = try_find_in_children(root_obj, name)
         materialize_result = None
         if existing_object is not None:
@@ -190,7 +198,7 @@ def materialize_objects(
                 parent,
                 context,
                 root_index,
-                i,
+                i - 1,
                 existing_object,
                 object_data,
                 reference_geometry,
@@ -201,14 +209,14 @@ def materialize_objects(
                 parent,
                 context,
                 root_index,
-                i,
+                i - 1,
                 object_data,
                 reference_geometry,
             )
         if materialize_result["status"] == "ERROR":
             errors.append(materialize_result)
         else:
-            parents.append(materialize_result["value"])
+            parents.append(materialize_result["values"])
     if len(errors) == 0:
         return {"status": "OK"}
     elif len(errors) == 1:
@@ -375,13 +383,11 @@ def draw_materialize_button(self, context):
     obj = context.object
     if not obj:
         return
+    if is_materialize_child(obj) or not is_materialize_modifier(obj):
+        return
     layout = layout.row()
     layout.enabled = True
-    if is_materialize_child(obj):
-        return
-    if not is_materialize_modifier(obj):
-        return
-    elif "materialized" not in obj.data:
+    if "materialized" not in obj.data:
         layout.operator(
             Modifier_OT_MaterializeOperator.bl_idname,
             text="Materialize",

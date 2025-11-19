@@ -330,10 +330,13 @@ def parse_object(transform, parent, geometry_set):
         if reversed_type_ids["PROPERTIES"] == type_id.value:
             properties_result = parse_properties(child)
             if properties_result["status"] == "ERROR":
-                return concat_error_path(properties_result, "data")
+                return concat_error_path(properties_result, "properties")
             properties = properties_result["values"]
         elif reversed_type_ids["DATA"] == type_id.value:
-            data = parse_object_data(child)
+            data_result = parse_object_data(child)
+            if data_result["status"] == "ERROR":
+                return concat_error_path(properties_result, "data")
+            data = data_result["values"]
     if data is None:
         return {"status": "ERROR", "message": "Missing data", "path": ["data"]}
     if properties is None:
@@ -443,7 +446,7 @@ def parse_root_object(transform, geometry_set):
         {
             "data": data,
             "properties": properties,
-            "parent": -2,
+            "parent": -1,
             "transform": transform.copy().freeze(),
         },
     )
