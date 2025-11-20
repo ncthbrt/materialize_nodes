@@ -8,6 +8,7 @@ VERSION 1
 
 a0fcdf3b-4133-426f-b3b9-611591b39975:Materialize:Materialize
 5f88c102-e78a-40bd-99eb-d4299b51966a:Materialize/Armature:Materialize-Armature
+aba0b1e6-055a-4ddd-b9c9-777229861b74:Materialize/Inputs:Materialize-Inputs
 69e731c1-bcde-4b73-a4fe-9f3c5fc1c56f:Materialize/Math:Materialize-Math
 71a43154-8463-4980-b51c-eafdf5cc6fd7:Materialize/Mesh:Materialize-Mesh
 889354c6-4643-4ca4-a04f-70b9b4095f8d:Materialize/Object:Materialize-Object

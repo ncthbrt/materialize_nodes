@@ -12,6 +12,15 @@
             }
         ]
     },
+    "Inputs": {
+        "icon": "math_utility",
+        "items": [
+            {
+                "name": "Falloff",
+                "icon": "matrix_utility"
+            }
+        ]
+    },
     "Math": {
         "icon": "math_utility",
         "items": [
