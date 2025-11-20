@@ -1,6 +1,5 @@
 import json
 import bpy
-import bpy.utils
 import bpy.utils.previews
 import os
 import pathlib

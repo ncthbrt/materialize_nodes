@@ -1,4 +1,4 @@
-import bpy.types
+import bpy
 
 
 def is_materialize_child(obj):

@@ -1,5 +1,4 @@
 import bpy
-import bpy.types
 
 
 def concat_error_path(error, part):

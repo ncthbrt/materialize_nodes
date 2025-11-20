@@ -7,10 +7,8 @@ import os
 
 from bpy.types import Operator, Menu, NODE_MT_add
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
-from .materialize_blend_loader import create_or_update_linked_lib
-
-from .utils import is_materialize_modifier
 from .custom_icons import get_icons, load_icons
+from .materialize_blend_loader import create_or_update_linked_lib
 
 geo_node_group_cache = {}
 node_menu_list = []
@@ -80,15 +78,12 @@ class NODE_OT_group_add(Operator):
         return {"FINISHED"}
 
 
-def get_addon_classes(revert=False):
+def get_addon_classes():
     """gather all classes of this plugin that have to be reg/unreg"""
     from .materialize_operations import classes as materialize_classes
 
     these_classes = (NODE_OT_group_add,)
     classes = these_classes + materialize_classes
-    if revert:
-        return reversed(classes)
-
     return classes
 
 
@@ -168,7 +163,8 @@ def register():
 
     node_menu_generator()
 
-    create_or_update_linked_lib()
+    bpy.app.handlers.load_factory_startup_post.append(create_or_update_linked_lib)
+    bpy.app.handlers.load_post.append(create_or_update_linked_lib)
 
     registered = True
     return None
@@ -188,11 +184,13 @@ def unregister():
         bpy.utils.unregister_class(NODE_MT_mtlz_geo_menu)
         NODE_MT_add.remove(add_mtlz_menu)
 
+    bpy.app.handlers.load_factory_startup_post.remove(create_or_update_linked_lib)
+    bpy.app.handlers.load_post.remove(create_or_update_linked_lib)
     from .materialize_operations import remove_modifier_panel
 
     remove_modifier_panel()
     # unregister every single addon classes here
-    for cls in get_addon_classes(revert=True):
+    for cls in reversed(get_addon_classes()):
         bpy.utils.unregister_class(cls)
 
     clean_modules()

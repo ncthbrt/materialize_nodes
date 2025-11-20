@@ -413,7 +413,7 @@ def draw_add_materialize_modifier(self, context):
     if not is_materialize_modifier(obj):
         layout.operator(
             OBJ_OT_template_group_add.bl_idname,
-            text="Materialize Nodes",
+            text="New Materialize Node Group",
             icon_value=get_icons()["materialize_icon"].icon_id,
         )
 

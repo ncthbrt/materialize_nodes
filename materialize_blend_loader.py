@@ -1,20 +1,14 @@
-import bpy
-import platformdirs
 import os
 import pathlib
 import shutil
+import bpy
 
-dir_path = os.path.dirname(__file__)
 file_name = "materialize.blend"
 
 
 def _get_data_dir():
-    data_dir = platformdirs.user_data_dir(
-        appname="Materialize",
-        appauthor="Ncthbrt",
-        version="1.0.0",
-        roaming=True,
-        ensure_exists=True,
+    data_dir = bpy.utils.extension_path_user(
+        __package__, path="blend/1_0_0", create=True
     )
     return data_dir
 
@@ -25,9 +19,12 @@ def get_path():
     return path
 
 
-def create_or_update_linked_lib():
-    import bpy
+def load():
+    path = get_path()
+    return bpy.data.libraries.load(path, link=True)
 
+
+def create_or_update_linked_lib(_):
     data_dir = _get_data_dir()
     shutil.copy2(
         os.path.join(os.path.dirname(__file__), file_name),
@@ -37,11 +34,6 @@ def create_or_update_linked_lib():
         for group in bpy.data.node_groups:
             if group.library.name == "materialize.blend":
                 data_to.node_groups.append(group.name)
-
-
-def load():
-    path = get_path()
-    return bpy.data.libraries.load(path, link=True)
 
 
 def _find_node_group(group_name):
