@@ -12,15 +12,6 @@
             }
         ]
     },
-    "Inputs": {
-        "icon": "math_utility",
-        "items": [
-            {
-                "name": "Falloff",
-                "icon": "matrix_utility"
-            }
-        ]
-    },
     "Math": {
         "icon": "math_utility",
         "items": [
@@ -87,6 +78,15 @@
             {
                 "name": "Selection",
                 "icon": "selection_reference"
+            }
+        ]
+    },
+    "Values": {
+        "icon": "value_value",
+        "items": [
+            {
+                "name": "Falloff",
+                "icon": "falloff_value"
             }
         ]
     }
