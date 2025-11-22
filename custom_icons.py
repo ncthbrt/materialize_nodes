@@ -19,5 +19,5 @@ def load_icons():
     for icon in os.listdir(icons_dir):
         icon_path = pathlib.Path(icon)
         icon_name = icon_path.stem
-        if icon != "ATTRIBUTION":
+        if icon != "ATTRIBUTION" and icon != "LICENSE":
             custom_icons.load(icon_name, os.path.join(icons_dir, icon), "IMAGE")

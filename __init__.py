@@ -62,6 +62,7 @@ class NODE_OT_group_add(Operator):
     bl_description = "Append Node Group"
     bl_options = {"REGISTER", "UNDO"}
 
+    is_custom_node: BoolProperty()
     group_name: StringProperty()
 
     @classmethod
@@ -71,19 +72,25 @@ class NODE_OT_group_add(Operator):
     def execute(self, context):
         from .materialize_blend_loader import load_node_group
 
-        bpy.ops.node.add_node(type="GeometryNodeGroup")
-        node = context.selected_nodes[0]
-        node.node_tree = load_node_group(self.group_name)
+        if not self.is_custom_node:
+            bpy.ops.node.add_node(type="GeometryNodeGroup")
+            node = context.selected_nodes[0]
+            node.node_tree = load_node_group(self.group_name)
+        else:
+            from .custom_nodes import custom_nodes
+
+            bpy.ops.node.add_node(type=custom_nodes[self.group_name].bl_idname)
         bpy.ops.transform.translate("INVOKE_DEFAULT")
         return {"FINISHED"}
 
 
 def get_addon_classes():
     """gather all classes of this plugin that have to be reg/unreg"""
-    from .materialize_operations import classes as materialize_classes
+    from .materialize_operations import classes as materialize_operation_classes
+    from .custom_nodes import classes as custom_node_classes
 
-    these_classes = (NODE_OT_group_add,)
-    classes = these_classes + materialize_classes
+    these_classes = (NODE_OT_group_add, NODE_MT_mtlz_geo_menu)
+    classes = these_classes + materialize_operation_classes + custom_node_classes
     return classes
 
 
@@ -102,7 +109,10 @@ def node_menu_generator():
                     text=group["name"],
                     icon_value=get_icons()[group["icon"]].icon_id,
                 )
+                from .custom_nodes import custom_nodes
+
                 props.group_name = group["name"]
+                props.is_custom_node = group["name"] in custom_nodes
 
         menu_type = type(
             "NODE_MT_category_" + item[0],
@@ -151,15 +161,14 @@ def register():
         geo_node_group_cache = json.loads(f.read())
     load_icons()
 
-    if not hasattr(bpy.types, NODE_MT_mtlz_geo_menu.bl_idname):
-        bpy.utils.register_class(NODE_MT_mtlz_geo_menu)
-        NODE_MT_add.append(add_mtlz_menu)
     from .materialize_operations import extend_modifier_panel
 
     extend_modifier_panel()
     # register every single addon classes here
     for cls in get_addon_classes():
         bpy.utils.register_class(cls)
+
+    NODE_MT_add.append(add_mtlz_menu)
 
     node_menu_generator()
 
@@ -175,10 +184,6 @@ def unregister():
     global registered
     if registered == False:
         return
-
-    from .custom_icons import get_icons
-
-    bpy.utils.previews.remove(get_icons())
 
     if hasattr(bpy.types, NODE_MT_mtlz_geo_menu.bl_idname):
         bpy.utils.unregister_class(NODE_MT_mtlz_geo_menu)

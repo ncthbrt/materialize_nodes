@@ -72,6 +72,10 @@
                 "icon": "target_reference"
             },
             {
+                "name": "External Target",
+                "icon": "external_target_reference"
+            },
+            {
                 "name": "Space",
                 "icon": "space_reference"
             },
