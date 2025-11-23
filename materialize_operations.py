@@ -13,9 +13,6 @@ dir_path = os.path.dirname(__file__)
 
 
 def create_data_block(context, data):
-    print("data", end="")
-    print(data)
-
     if data["data"]["geometry"]["type"] == "ARMATURE":
         # TODO: Armatures
         return {
@@ -40,7 +37,6 @@ def create_object(
     root, parent, context, object_data, data_block, root_index, current_index
 ):
     name = object_data["properties"]["name"]
-    print(name)
     new_obj = bpy.data.objects.new(name, data_block["data_block"])
     new_obj.parent = parent
     context.collection.objects.link(new_obj)

@@ -88,7 +88,6 @@ def parse_attribute_values(pointcloud, instance_references, values):
             "message": "Missing attribute values",
             "path": ["values"],
         }
-    print(values)
     return {"status": "OK", "values": values}
 
 
@@ -399,7 +398,6 @@ def parse_root_object(transform, geometry_set):
     reference_geometry = None
     for i, type in zip(reference_indices.data, types.data):
         child = instance_references[i.value]
-        print(child)
         type_id = type.value
         if reversed_type_ids["PROPERTIES"] == type_id:
             properties_result = parse_properties(child)
