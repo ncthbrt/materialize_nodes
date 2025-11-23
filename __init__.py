@@ -185,15 +185,16 @@ def unregister():
     if registered == False:
         return
 
-    if hasattr(bpy.types, NODE_MT_mtlz_geo_menu.bl_idname):
-        bpy.utils.unregister_class(NODE_MT_mtlz_geo_menu)
-        NODE_MT_add.remove(add_mtlz_menu)
-
     bpy.app.handlers.load_factory_startup_post.remove(create_or_update_linked_lib)
     bpy.app.handlers.load_post.remove(create_or_update_linked_lib)
+    try:
+        NODE_MT_add.remove(add_mtlz_menu)
+    except:
+        pass
     from .materialize_operations import remove_modifier_panel
 
     remove_modifier_panel()
+
     # unregister every single addon classes here
     for cls in reversed(get_addon_classes()):
         bpy.utils.unregister_class(cls)
