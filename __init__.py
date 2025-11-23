@@ -103,12 +103,21 @@ def node_menu_generator():
 
         def custom_draw(self, context):
             layout = self.layout
+            icons = get_icons()
             for group in geo_node_group_cache[self.bl_label]["items"]:
-                props = layout.operator(
-                    NODE_OT_group_add.bl_idname,
-                    text=group["name"],
-                    icon_value=get_icons()[group["icon"]].icon_id,
-                )
+                icon = group["icon"]
+                props = None
+
+                if icon in icons:
+                    props = layout.operator(
+                        NODE_OT_group_add.bl_idname,
+                        text=group["name"],
+                        icon_value=icons[icon].icon_id,
+                    )
+                else:
+                    props = layout.operator(
+                        NODE_OT_group_add.bl_idname, text=group["name"], icon=icon
+                    )
                 from .custom_nodes import custom_nodes
 
                 props.group_name = group["name"]
