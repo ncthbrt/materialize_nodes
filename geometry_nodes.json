@@ -91,6 +91,10 @@
             {
                 "name": "Falloff",
                 "icon": "falloff_value"
+            },
+            {
+                "name": "Profile Curve",
+                "icon": "profile_curve_value"
             }
         ]
     }

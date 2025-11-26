@@ -14,10 +14,6 @@ class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_Target"
     bl_label = "External Target"
     bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
-    auto_upd_flags = {
-        "FRAME_PRE",
-        "DEPS_POST",
-    }
     tree_type = "GeometryNodeTree"
     color_tag = "COLOR"
 
@@ -74,9 +70,9 @@ class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
     bl_width_default = 250
 
     @classmethod
-    def poll(cls, context):
+    def poll(cls, context: bpy.types.Context):
         """mandatory poll"""
-        return True
+        return context.space_data.tree_type == "GeometryNodeTree"
 
     def init(self, context):
         """this is run when appending the node for the first time"""
@@ -115,7 +111,6 @@ class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
         """node interface drawing"""
 
         row = layout.row(align=True)
-
         row.prop(self, "target_type", text="Type")
 
         row = layout.row(align=True)
