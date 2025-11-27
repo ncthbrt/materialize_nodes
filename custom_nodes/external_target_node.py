@@ -72,7 +72,7 @@ class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
     @classmethod
     def poll(cls, context: bpy.types.Context):
         """mandatory poll"""
-        return context.space_data.tree_type == "GeometryNodeTree"
+        return True
 
     def init(self, context):
         """this is run when appending the node for the first time"""

@@ -10,6 +10,13 @@ def filter_materialize_obj(self, obj):
     return obj.type == "ARMATURE"
 
 
+profile_curve_node = "ProfileCurve"
+
+
+def curve_update(self):
+    print("UPDATED CURVE")
+
+
 class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_ProfileCurve"
     bl_label = "Profile Curve"
@@ -17,24 +24,23 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
 
     tree_type = "GeometryNodeTree"
     color_tag = "INPUT"
+    initialized: bpy.props.BoolProperty(name="Initialized")
+
+    def __init__(self, strct=None) -> None:
+        super().__init__(strct)
+        if self.initialized:
+            self.register_busses()
 
     def update_signal(self, context):
         # self.profile_curve
         return None
-
-    profile_curve: bpy.props.CollectionProperty(
-        name="Curve",
-        type=bpy.types.CurveProfile,
-        description="The profile curve",
-        update=update_signal,
-    )  # type: ignore
 
     bl_width_default = 300
 
     @classmethod
     def poll(cls, context):
         """mandatory poll"""
-        return context.space_data.tree_type == "GeometryNodeTree"
+        return True
 
     def init(self, context):
         """this is run when appending the node for the first time"""
@@ -45,17 +51,27 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
         node_group = load_node_group("MTLZ_Profile Curve")
         self.node_tree = node_group.copy()
         self.width = 300
-
+        self.register_busses()
+        self.initialized = True
         return None
+
+    def register_busses(self):
+        bpy.msgbus.subscribe_rna(
+            key=self.node_tree.nodes[profile_curve_node],
+            owner=self,
+            args=(self,),
+            notify=curve_update,
+        )
 
     def copy(self, node):
         """fct run when dupplicating the node"""
 
         # NOTE: copy/paste can cause crashes, we use a timer to delay the action
         def delayed_copy():
-            self.profile_curve = node.profile_curve.copy()
-            self.node_tree = node.node_tree
+            self.node_tree = node.node_tree.copy()
             self.width = node.width
+            self.register_busses()
+            self.initialized = True
 
         bpy.app.timers.register(delayed_copy, first_interval=0.01)
 
@@ -71,10 +87,9 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
 
     def draw_buttons(self, context, layout):
         """node interface drawing"""
-
-        row = layout.row(align=True)
-
-        row.template_curveprofile(self, "profile_curve")
+        layout.template_curve_mapping(
+            self.node_tree.nodes[profile_curve_node], "mapping"
+        )
         return None
 
     def draw_panel(self, layout, context):
