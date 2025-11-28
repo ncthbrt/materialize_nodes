@@ -87,7 +87,7 @@ class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
         return None
 
     def copy(self, node):
-        """fct run when dupplicating the node"""
+        """fct run when duplicating the node"""
 
         # NOTE: copy/paste can cause crashes, we use a timer to delay the action
         def delayed_copy():
