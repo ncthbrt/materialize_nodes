@@ -1,18 +1,8 @@
 import bpy
-import mathutils
-import numpy as np
-
-
-def filter_materialize_obj(self, obj):
-    if "materialize" in obj:
-        return False
-    if self.target_type == "OBJECT":
-        return True
-    return obj.type == "ARMATURE"
-
 
 profile_curve_object = "MTLZ_ProfileCurveObject"
 profile_curve_modifier_name = "ProfileCurve"
+profile_curve_object_name_node = "Profile Curve Object"
 
 
 def create_profile_curve(obj):
@@ -32,18 +22,22 @@ def get_or_create_profile_curve_object(obj):
     return obj
 
 
-def curve_update(self):
-    if self.curve_update_timer is None or not bpy.app.timers.is_registered(
-        self.curve_update_timer
-    ):
+def filter_materialize_obj(self, obj):
+    if "materialize" in obj:
+        return False
+    if self.target_type == "OBJECT":
+        return True
+    return obj.type == "ARMATURE"
 
-        def update():
-            if self is not None:
-                self.curve_update_timer = None
-                return None
 
-        self.curve_update_timer = update
-        bpy.app.timers.register(self.curve_update_timer, first_interval=0.25)
+profile_curve_object = "MTLZ_ProfileCurveObject"
+profile_curve_modifier_name = "ProfileCurve"
+profile_curve_object_name_node = "Profile Curve Object"
+
+
+def create_profile_curve(obj):
+    bevel_modifier = obj.modifiers.new(profile_curve_modifier_name, "BEVEL")
+    return bevel_modifier.name
 
 
 class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
@@ -53,25 +47,22 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
 
     tree_type = "GeometryNodeTree"
     color_tag = "INPUT"
-    initialized: bpy.props.BoolProperty(name="Initialized")
 
     def profile_object_updated(self, context):
         if self.profile_object is None:
             self.obj_initialize()
+        self.node_tree.nodes[profile_curve_object_name_node].string = (
+            self.profile_object.name
+        )
         return None
 
+    initialized: bpy.props.BoolProperty(name="Initialized")
     profile_object: bpy.props.PointerProperty(
         type=bpy.types.Object,
         name="Profile Object",
         description="Profile Object",
         update=profile_object_updated,
     )  # pyright: ignore[reportInvalidTypeForm]
-
-    def __init__(self, strct=None) -> None:
-        super().__init__(strct)
-        self.curve_update_timer = None
-        if self.initialized:
-            self.register_busses()
 
     bl_width_default = 300
 
@@ -103,15 +94,6 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
             and profile_curve_modifier_name in self.profile_object.modifiers
         )
 
-    def register_busses(self):
-        if self.is_valid():
-            bpy.msgbus.subscribe_rna(
-                key=self.profile_object.modifiers[profile_curve_modifier_name],
-                owner=self,
-                args=(self,),
-                notify=curve_update,
-            )
-
     def copy(self, node):
         """fct run when dupplicating the node"""
 
@@ -135,12 +117,11 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
 
     def draw_buttons(self, context, layout):
         """node interface drawing"""
-        if not self.is_valid():
-            self.obj_initialize()
-        layout.template_curveprofile(
-            self.profile_object.modifiers[profile_curve_modifier_name],
-            "custom_profile",
-        )
+        if self.is_valid():
+            layout.template_curveprofile(
+                self.profile_object.modifiers[profile_curve_modifier_name],
+                "custom_profile",
+            )
         return None
 
     def draw_panel(self, layout, context):

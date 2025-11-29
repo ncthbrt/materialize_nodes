@@ -1,22 +1,31 @@
 import bpy
-import mathutils
-
 
 mapping_curve_node = "MappingCurve"
+timers = {}
 
 
-def curve_update(self):
-    if self.curve_update_timer is None or not bpy.app.timers.is_registered(
-        self.curve_update_timer
+def curve_update(node_tree):
+    global timers
+    if (
+        node_tree is not None
+        and node_tree.name not in timers
+        or not bpy.app.timers.is_registered(timers[node_tree.name])
     ):
 
         def update():
-            if self is not None:
-                self.curve_update_timer = None
-                print("Updating curve")
+            if node_tree is not None:
+                from .utils.curve_utils import reverseengineer_curvemapping_to_bezsegs
+                from .utils.curve_nodegroup_utils import set_control_points
 
-        self.curve_update_timer = update
-        bpy.app.timers.register(self.curve_update_timer, first_interval=0.1)
+                del timers[node_tree.name]
+                node = node_tree.nodes[mapping_curve_node]
+                segments = reverseengineer_curvemapping_to_bezsegs(
+                    node.mapping.curves[0]
+                )
+                set_control_points(segments, node_tree)
+
+        timers[node_tree.name] = update
+        bpy.app.timers.register(timers[node_tree.name], first_interval=0.25)
 
 
 class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
@@ -31,7 +40,6 @@ class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
 
     def __init__(self, strct=None) -> None:
         super().__init__(strct)
-        self.curve_update_timer = None
         if self.initialized:
             self.register_busses()
 
@@ -57,7 +65,7 @@ class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
         bpy.msgbus.subscribe_rna(
             key=self.node_tree.nodes[mapping_curve_node],
             owner=self,
-            args=(self,),
+            args=(self.node_tree,),
             notify=curve_update,
         )
 
@@ -92,3 +100,6 @@ class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
 
     def draw_panel(self, layout, context):
         pass
+
+    def free(self):
+        bpy.data.node_groups.remove(self.node_tree)
