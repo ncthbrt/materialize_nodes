@@ -5,9 +5,14 @@ positions_index_switch = "Positions"
 left_index_switch = "LeftPositions"
 right_index_switch = "RightPositions"
 curve_points_count = "CurvePoints"
+handle_type = "HandleType"
 
 
-def set_control_points(control_points, node_tree: bpy.types.NodeTree):
+def set_control_points(
+    control_points,
+    curve: bpy.types.CurveMapping,
+    node_tree: bpy.types.NodeTree,
+):
     positions: bpy.types.GeometryNodeIndexSwitch = node_tree.nodes[
         positions_index_switch
     ]  # pyright: ignore[reportAssignmentType]
@@ -16,6 +21,10 @@ def set_control_points(control_points, node_tree: bpy.types.NodeTree):
     ]  # pyright: ignore[reportAssignmentType]
     right_positions: bpy.types.GeometryNodeIndexSwitch = node_tree.nodes[
         right_index_switch
+    ]  # pyright: ignore[reportAssignmentType]
+
+    handle_types: bpy.types.GeometryNodeIndexSwitch = node_tree.nodes[
+        handle_type
     ]  # pyright: ignore[reportAssignmentType]
     count = node_tree.nodes[curve_points_count]
 
@@ -35,6 +44,7 @@ def set_control_points(control_points, node_tree: bpy.types.NodeTree):
     _reconcile_length(positions)
     _reconcile_length(left_positions)
     _reconcile_length(right_positions)
+    _reconcile_length(handle_types)
 
     # [P0x, P0y, P1x, P1y, P2x, P2y, P3x, P3y]
     for i in range(0, new_length - 1):
@@ -84,5 +94,18 @@ def set_control_points(control_points, node_tree: bpy.types.NodeTree):
     input_right_position.default_value[1] = next_cp_y
     input_left_position.default_value[0] = prev_cp_x
     input_left_position.default_value[1] = prev_cp_y
+
+    for i in range(0, new_length - 1):
+        point = curve.curves[0].points[i]
+        if point.handle_type == "AUTO":
+            handle_types.inputs[i + 1].default_value = 1
+        elif point.handle_type == "AUTO_CLAMPED":
+            handle_types.inputs[i + 1].default_value = 2
+        elif point.handle_type == "VECTOR":
+            handle_types.inputs[i + 1].default_value = 3
+
+    type = handle_types.inputs[len(handle_types.inputs) - 2]
+    # End point is "AUTO"
+    type.default_value = 1
 
     return None

@@ -277,7 +277,7 @@ def reverseengineer_curveprofile_to_bezsegs(curve: bpy.types.CurveProfile):
     Convert a Blender CurveProfile object to a NumPy array of Bézier segments,
     calculating handle positions based on Blender's internal C functions.
     Returns: np.ndarray: An (N-1) x 8 NumPy array [P0x, P0y, P1x, P1y, P2x, P2y, P3x, P3y] or None if a segments list cannot be obtained.
-    """
+    """    
     return reverseengineer_curve_to_bezsegs(curve.points, monotonic=False)
 
 
@@ -288,6 +288,10 @@ def reverseengineer_curvemapping_to_bezsegs(curve: bpy.types.CurveMap):
     ensuring X-monotonicity.
     Returns: np.ndarray: An (N-1) x 8 NumPy array [P0x, P0y, P1x, P1y, P2x, P2y, P3x, P3y] or None if a segments list cannot be obtained.
     """
+
+    for p in curve.points:
+        p.handle_type
+        
 
     return reverseengineer_curve_to_bezsegs(
         curve.points, monotonic=True, calculate_intercept=True

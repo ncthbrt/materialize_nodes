@@ -22,7 +22,7 @@ def curve_update(node_tree):
                 segments = reverseengineer_curvemapping_to_bezsegs(
                     node.mapping.curves[0]
                 )
-                set_control_points(segments, node_tree)
+                set_control_points(segments, node.mapping, node_tree)
 
         timers[node_tree.name] = update
         bpy.app.timers.register(timers[node_tree.name], first_interval=0.25)
