@@ -127,9 +127,11 @@ def rematerialize_object(
 
 
 def materialize_objects(
-    root_obj, context, root_index, child_transform, child_geometry_set
+    root_obj, context, root_index, parent_geometryset, child_geometry_set
 ):
-    object_parse_result = parse_root_object(child_transform, child_geometry_set)
+    object_parse_result = parse_root_object(
+        root_index, parent_geometryset, child_geometry_set
+    )
     if object_parse_result["status"] == "ERROR":
         return concat_error_path(object_parse_result, child_geometry_set.name)
     values = object_parse_result["values"]
@@ -239,13 +241,7 @@ def materialize(root_obj, context):
     # Top level objects. These are special because they need to be pushed down once
     for child_transform, i in zip(instance_transforms.data, reference_indices.data):
         child_geometry_set = instance_references[i.value]
-        result = materialize_objects(
-            root_obj,
-            context,
-            index,
-            child_transform.value.copy().freeze(),
-            child_geometry_set,
-        )
+        result = materialize_objects(root_obj, context, index, child_geometry_set, data)
         index += 1
         if result["status"] == "ERROR":
             errors.append(result)
