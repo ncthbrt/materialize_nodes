@@ -37,9 +37,9 @@ type_ids = {
 data_block_type_ids = {
     1: "ARMATURE",
     2: "CURVE",
-    3: "GREASE_PENCIL",
+    3: "GREASEPENCIL",
     4: "MESH",
-    5: "POINT_CLOUD",
+    5: "POINTCLOUD",
     6: "VOLUME",
     7: "INSTANCE",
 }
@@ -276,7 +276,9 @@ def parse_geometry(index, parent_pointcloud, child):
     subtype_name = data_block_type_ids[subtype]
     match subtype_name:
         case "ARMATURE":
-            armature_result = parse_armature(index, parent_pointcloud, child)
+            armature_result = parse_element_bag(
+                "GEOMETRY", index, parent_pointcloud, child
+            )
             if armature_result["status"] == "ERROR":
                 return concat_error_path(armature_result, "geometry")
             return {
@@ -297,13 +299,13 @@ def parse_geometry(index, parent_pointcloud, child):
                         "value": child.curves,
                     },
                 }
-        case "GREASE_PENCIL":
+        case "GREASEPENCIL":
             if child.grease_pencil is not None:
                 return {
                     "status": "OK",
                     "value": {
                         "type": "GEOMETRY",
-                        "subtype": "GREASE_PENCIL",
+                        "subtype": "GREASEPENCIL",
                         "value": child.curves,
                     },
                 }
@@ -317,13 +319,13 @@ def parse_geometry(index, parent_pointcloud, child):
                         "value": child.mesh,
                     },
                 }
-        case "POINT_CLOUD":
+        case "POINTCLOUD":
             if child.pointcloud is not None:
                 return {
                     "status": "OK",
                     "value": {
                         "type": "GEOMETRY",
-                        "subtype": "POINT_CLOUD",
+                        "subtype": "POINTCLOUD",
                         "value": child.pointcloud,
                     },
                 }
