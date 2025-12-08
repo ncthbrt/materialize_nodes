@@ -29,6 +29,9 @@ type_ids = {
     19: "DEPENDENCY",
     20: "TARGET_SPACE",
     21: "OWNER_SPACE",
+    22: "VERTEX_GROUP",
+    23: "TARGET_VALUE",
+    24: "SUBTARGET_VALUE",
 }
 
 data_block_type_ids = {
@@ -41,33 +44,35 @@ data_block_type_ids = {
     7: "INSTANCE",
 }
 
+constraint_type_ids = {1: "TRANSFORM", 2: "LOCATION", 3: "ROTATION", 4: "SCALE"}
 
-def _reverse_dict(d):
-    result = dict()
-    for k, v in d.items():
-        result[v] = k
-    return result
+modifier_type_ids = {1: "HOOK", 2: "ARMATURE"}
 
+space_type_ids = {
+    1: "WORLD",
+    2: "CUSTOM",
+    3: "POSE",
+    4: "LOCAL_WITH_PARENT",
+    5: "LOCAL",
+}
 
-reversed_type_ids = _reverse_dict(type_ids)
-reversed_data_block_type_ids = _reverse_dict(data_block_type_ids)
+subtype_type_ids = {
+    "SPACE": space_type_ids,
+    "MODIFIER": modifier_type_ids,
+    "CONSTRAINT": constraint_type_ids,
+    "GEOMETRY": data_block_type_ids,
+    "REFERENCE_GEOMETRY": data_block_type_ids,
+}
 
-
-def parse_vertex_groups(geometry_set):
-    pointcloud = geometry_set.instances_pointcloud()
-    instance_references: list = geometry_set.instance_references()
-    if pointcloud is None or instance_references is None:
-        return {
-            "status": "ERROR",
-            "message": "Missing vertex_group values",
-            "path": ["vertex_groups"],
-        }
-    reference_indices = pointcloud.attributes[".reference_index"]
-    values = []
-    for i in reference_indices.data:
-        child = instance_references[i.value]
-        values.append(child.name)
-    return {"status": "OK", "values": values}
+domain_type_ids = {
+    1: "POINT",
+    2: "EDGE",
+    3: "FACE",
+    4: "FACE_CORNER",
+    5: "SPLINE",
+    6: "INSTANCE",
+    7: "LAYER",
+}
 
 
 def parse_name(child):
@@ -85,171 +90,133 @@ def get_attribute_value(data_type, attribute_value):
     if data_type == "FLOAT_COLOR" or data_type == "BYTE_COLOR":
         return attribute_value.color.copy().freeze()
     else:
-        return attribute_value.value.copy().freeze()
+        return attribute_value.value
 
 
-def parse_attributes(index, pointcloud, child):
+def parse_attributes(index, pointcloud, _child):
     values = {}
     for [attribute_name, attribute] in pointcloud.attributes.items():
-        if attribute_name == ".reference_index":
+        if (
+            attribute_name == ".reference_index"
+            or attribute_name == "type"
+            or attribute_name == "subtype"
+        ):
             continue
         value = attribute.data[index]
-        found_values = True
-        values[attribute_name] = get_attribute_value(attribute, value)
-    if found_values == False:
-        return {
-            "status": "ERROR",
-            "message": "Missing attribute values",
-            "path": ["values"],
-        }
+        values[attribute_name] = get_attribute_value(attribute.data_type, value)
     return {"status": "OK", "value": {"type": "ATTRIBUTES", "values": values}}
 
 
-def parse_modifier(index, pointcloud, child):
+def parse_element_bag(type, index, parent_pointcloud, child):
+    subtype = None
+    subtypes = None
+    if type in subtype_type_ids:
+        subtypes = subtype_type_ids[type]
+    if subtypes is not None:
+        subtype_ids_attribute = parent_pointcloud.attributes["subtype"]
+        subtype = subtype_ids_attribute.data[index]
+        subtype = subtypes[
+            get_attribute_value(subtype_ids_attribute.data_type, subtype)
+        ]
+    attributes_result = parse_attributes(index, parent_pointcloud, child)
+    if attributes_result["status"] == "ERROR":
+        return concat_error_path(attributes_result, "bone")
+    values = {}
+    concat_to_values(attributes_result, values)
+    pointcloud = child.instances_pointcloud()
+    instance_references = child.instance_references()
+    if pointcloud is None or instance_references is None:
+        return {
+            "status": "OK",
+            "value": {"type": type, "subtype": subtype, "values": values},
+        }
+
+    reference_indices = pointcloud.attributes[".reference_index"]
+    for i in reference_indices.data:
+        child = instance_references[i.value]
+        element_result = parse_element(i.value, pointcloud, child)
+        if element_result["status"] == "ERROR":
+            return concat_error_path(element_result, child.name)
+        concat_to_values(element_result, values)
+
     return {
-        "status": "ERROR",
-        "message": "Modifiers are not yet supported",
-        "path": ["modifier"],
+        "status": "OK",
+        "value": {"type": type, "subtype": subtype, "values": values},
     }
 
 
-def parse_modifiers(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Modifiers are not yet supported",
-        "path": ["modifiers"],
-    }
+def parse_collection(type_name, index, parent_pointcloud, child):
+    pointcloud = child.instances_pointcloud()
+    instance_references: list = child.instance_references()
+    if pointcloud is None or instance_references is None:
+        return {"status": "OK", "values": []}
+    reference_indices = pointcloud.attributes[".reference_index"]
+    values = []
+    for i in reference_indices.data:
+        child = instance_references[i.value]
+        element_result = parse_element(i.value, pointcloud, child)
+        if element_result["status"] == "ERROR":
+            return concat_error_path(element_result, child.name)
+        values.append(element_result["value"])
+    return {"status": "OK", "value": {"type": type_name, "values": values}}
 
 
-def parse_constraint(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Constraints are not yet supported",
-        "path": ["constraint"],
-    }
-
-
-def parse_constraints(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Constraints are not yet supported",
-        "path": ["constraints"],
-    }
-
-
-def parse_dependencies(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Dependencies are not yet supported",
-        "path": ["dependencies"],
-    }
-
-
-def parse_dependency(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Dependency is not yet supported",
-        "path": ["dependency"],
-    }
-
-
-def parse_falloff(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Falloff is not yet supported",
-        "path": ["dependencies"],
-    }
-
-
-def parse_materials(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Materials are not yet supported",
-        "path": ["dependencies"],
-    }
-
-
-def parse_vertex_groups(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "VertexGroups are not yet supported",
-        "path": ["vertex_groups"],
-    }
-
-
-def parse_selection(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Selection is not yet supported",
-        "path": ["selection"],
-    }
-
-
-def parse_space(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Space is not yet supported",
-        "path": ["space"],
-    }
-
-
-def parse_target(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Target is not yet supported",
-        "path": ["target"],
-    }
-
-
-def parse_target_space(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Target Space is not yet supported",
-        "path": ["target_space"],
-    }
-
-
-def parse_owner_space(index, pointcloud, child):
-    return {
-        "status": "ERROR",
-        "message": "Owner Space is not yet supported",
-        "path": ["owner_space"],
-    }
+def parse_selection(index, parent_pointcloud, child):
+    mesh = child.mesh
+    if mesh is None or "index" not in mesh.attributes:
+        return {"status": "ERROR", "message": "Expected indices", "path": ["selection"]}
+    bag_result = parse_element_bag("SELECTION", index, parent_pointcloud, child)
+    if bag_result["status"] == "ERROR":
+        return concat_error_path(bag_result, "selection")
+    value = bag_result["value"]
+    indices = []
+    value["indices"] = indices
+    index_attribute = mesh.attributes["index"]
+    for v in mesh.vertices:
+        indices.append(
+            get_attribute_value(
+                index_attribute.data_type, index_attribute.data[v.index]
+            )
+        )
+    return {"status": "OK", "value": value}
 
 
 def parse_element(index, pointcloud, child):
-    type_ids = pointcloud.attributes["type"]
-    type = type_ids[index]
-    type_name = reversed_type_ids[type]
+    type_ids_attribute = pointcloud.attributes["type"]
+    type = type_ids_attribute.data[index]
+    type_id = get_attribute_value(type_ids_attribute.data_type, type)
+    type_name = type_ids[type_id]
     match type_name:
         case "OBJECT":
             return parse_object(index, pointcloud, child)
         case "BONE":
-            return parse_bone(index, pointcloud, child)
+            return parse_element_bag("BONE", index, pointcloud, child)
         case "DATA":
-            return parse_data(index, pointcloud, child)
+            return parse_element_bag("DATA", index, pointcloud, child)
         case "CHILDREN":
-            return parse_children(index, pointcloud, child)
+            return parse_element_bag("CHILDREN", index, pointcloud, child)
         case "REFERENCE_GEOMETRY":
             return parse_reference_geometry(index, pointcloud, child)
         case "GEOMETRY":
-            return parse_geometry(index, pointcloud, child)
+            return parse_element_bag("GEOMETRY", index, pointcloud, child)
         case "MODIFIER":
-            return parse_modifier(index, pointcloud, child)
+            return parse_element_bag("MODIFIER", index, pointcloud, child)
         case "CONSTRAINT":
-            return parse_constraint(index, pointcloud, child)
+            return parse_element_bag("CONSTRAINT", index, pointcloud, child)
         case "DEPENDENCIES":
-            return parse_dependencies(index, pointcloud, child)
+            return parse_collection("DEPENDENCIES", index, pointcloud, child)
         case "FALLOFF":
-            return parse_falloff(index, pointcloud, child)
+            return parse_element_bag("FALLOFF", index, pointcloud, child)
         case "MATERIALS":
-            return parse_materials(index, pointcloud, child)
+            return parse_collection("MATERIALS", index, pointcloud, child)
         case "CONSTRAINTS":
-            return parse_constraints(index, pointcloud, child)
+            return parse_collection("CONSTRAINTS", index, pointcloud, child)
         case "MODIFIERS":
-            return parse_modifiers(index, pointcloud, child)
+            return parse_collection("MODIFIERS", index, pointcloud, child)
         case "VERTEX_GROUPS":
-            return parse_vertex_groups(index, pointcloud, child)
+            return parse_collection("VERTEX_GROUPS", index, pointcloud, child)
+        case "VERTEX_GROUP":
+            return parse_element_bag("VERTEX_GROUP", index, pointcloud, child)
         case "ATTRIBUTES":
             return parse_attributes(index, pointcloud, child)
         case "SELECTION":
@@ -257,13 +224,22 @@ def parse_element(index, pointcloud, child):
         case "NAME":
             return parse_name(child)
         case "TARGET":
-            return parse_target(index, pointcloud, child)
+            return parse_element_bag("TARGET", index, pointcloud, child)
         case "DEPENDENCY":
-            return parse_dependency(index, pointcloud, child)
+            return parse_element_bag("DEPENDENCY", index, pointcloud, child)
         case "TARGET_SPACE":
-            return parse_target_space(index, pointcloud, child)
+            return parse_element_bag("TARGET_SPACE", index, pointcloud, child)
         case "OWNER_SPACE":
-            return parse_owner_space(index, pointcloud, child)
+            return parse_element_bag("OWNER_SPACE", index, pointcloud, child)
+        case "TARGET_VALUE":
+            return parse_element_bag("TARGET_VALUE", index, pointcloud, child)
+        case "SUBTARGET_VALUE":
+            return parse_element_bag("SUBTARGET_VALUE", index, pointcloud, child)
+    return {
+        "status": "ERROR",
+        "message": f"UNKNOWN TYPE {type_name}, {type_id}",
+        "path": [],
+    }
 
 
 def parse_bone(index, parent_pointcloud, child):
@@ -287,26 +263,6 @@ def parse_bone(index, parent_pointcloud, child):
     return {"status": "OK", "value": {"type": "BONE", "values": values}}
 
 
-def parse_armature(index, parent_pointcloud, child):
-    pointcloud = child.instances_pointcloud()
-    instance_references: list = child.instance_references()
-    if pointcloud is None or instance_references is None:
-        return {"status": "ERROR", "message": "Malformed data", "path": ["armature"]}
-    attributes_result = parse_attributes(index, parent_pointcloud, child)
-    if attributes_result["status"] == "ERROR":
-        return concat_error_path(attributes_result, "bone")
-    values = {}
-    concat_to_values(attributes_result, values)
-    reference_indices = pointcloud.attributes[".reference_index"]
-    for i in reference_indices.data:
-        child = instance_references[i.value]
-        element_result = parse_element(i.value, pointcloud, child)
-        if element_result["status"] == "ERROR":
-            return concat_error_path(element_result, child.name)
-        concat_to_values(element_result, values)
-    return {"status": "OK", "value": {"type": "ARMATURE", "values": values}}
-
-
 def parse_geometry(index, parent_pointcloud, child):
     subtypes = parent_pointcloud.attributes["subtype"]
     if subtypes is None:
@@ -315,6 +271,7 @@ def parse_geometry(index, parent_pointcloud, child):
             "message": "Geometry is missing subtype value",
             "path": ["geometry"],
         }
+
     subtype = get_attribute_value(subtypes, subtypes.data[index])
     subtype_name = data_block_type_ids[subtype]
     match subtype_name:
@@ -431,8 +388,6 @@ def concat_to_values(element_result, values):
 
 
 def parse_object(index, parent_pointcloud, child):
-    parents = parent_pointcloud.attributes["parent"]
-
     pointcloud = child.instances_pointcloud()
     instance_references: list = child.instance_references()
     if pointcloud is None or instance_references is None:
@@ -453,25 +408,6 @@ def parse_object(index, parent_pointcloud, child):
     }
 
 
-def parse_children(_index, pointcloud, child):
-    pointcloud = child.instances_pointcloud()
-    instance_references: list = child.instance_references()
-    if pointcloud is None or instance_references is None:
-        return {"status": "ERROR", "message": "Malformed data", "path": ["children"]}
-    reference_indices = pointcloud.attributes[".reference_index"]
-    children = []
-    for i in reference_indices.data:
-        child = instance_references[i.value]
-        attributes_result = parse_attributes(i.value, pointcloud, child)
-        if attributes_result["status"] == "ERROR":
-            return concat_error_path(attributes_result, child.name)
-        element_result = parse_element(i.value, pointcloud, child)
-        if element_result["status"] == "ERROR":
-            return concat_error_path(element_result, child.name)
-        children.append(element_result["value"])
-    return {"status": "OK", "values": {"type": "CHILDREN", "values": children}}
-
-
 def parse_reference_geometry(index, parent_pointcloud, child):
     geometry_result = parse_geometry(index, parent_pointcloud, child)
     if geometry_result["status"] == "ERROR":
@@ -486,9 +422,9 @@ def parse_reference_geometry(index, parent_pointcloud, child):
     }
 
 
-def parse_root_object(index, parent_pointcloud, child):
+def parse_root_object(index, _parent_pointcloud, child):
     pointcloud = child.instances_pointcloud()
-    instance_references: list = child.instance_references()
+    instance_references = child.instance_references()
     if pointcloud is None or instance_references is None:
         return {
             "status": "ERROR",
@@ -496,9 +432,9 @@ def parse_root_object(index, parent_pointcloud, child):
             "path": [child.name],
         }
     reference_indices = pointcloud.attributes[".reference_index"]
-    attributes_result = parse_attributes(index, parent_pointcloud, child)
+    attributes_result = parse_attributes(index, pointcloud, child)
     if attributes_result["status"] == "ERROR":
-        return concat_error_path(attributes_result, "bone")
+        return concat_error_path(attributes_result, "object")
     values = {}
     concat_to_values(attributes_result, values)
 
@@ -508,11 +444,8 @@ def parse_root_object(index, parent_pointcloud, child):
         if element_result["status"] == "ERROR":
             return concat_error_path(element_result, child.name)
         concat_to_values(element_result, values)
-
     objects = []
-    if values["CHILDREN"] is not None:
-        objects = values["CHILDREN"]["values"]
-    else:
+    if "CHILDREN" not in values:
         values["CHILDREN"] = {"type": "CHILDREN", "values": objects}
     if values["DATA"] is None:
         return {
