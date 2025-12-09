@@ -6,14 +6,11 @@ from bpy.types import (
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
 import bl_ui.properties_data_modifier
 from .utils import get_evaluated_geometry, is_materialize_modifier, is_materialize_child
-import os
 from .parse_utils import concat_error_path, parse_root_object
 import bmesh
 
-dir_path = os.path.dirname(__file__)
 
-
-def create_armature(context, data):
+def create_armature(context, data, root, root_index, current_index):
     return {
         "status": "ERROR",
         "path": ["data", "geometry"],
@@ -21,7 +18,7 @@ def create_armature(context, data):
     }
 
 
-def create_curve(context, data):
+def create_curve(context, data, root, root_index, current_index):
     return {
         "status": "ERROR",
         "path": ["data", "geometry"],
@@ -29,13 +26,64 @@ def create_curve(context, data):
     }
 
 
-def create_mesh(context, data):
-    data_block = bpy.data.meshes.new(data["DATA"]["NAME"])
+def create_volume(context, data, root, root_index, current_index):
     return {
         "status": "ERROR",
         "path": ["data", "geometry"],
-        "message": "Curves are not yet supported",
+        "message": "Volumes are not yet supported",
     }
+
+
+def create_greasepencil(context, data, root, root_index, current_index):
+    return {
+        "status": "ERROR",
+        "path": ["data", "geometry"],
+        "message": "Grease Pencil is not yet supported",
+    }
+
+
+def create_pointcloud(context, data, root, root_index, current_index):
+    return {
+        "status": "ERROR",
+        "path": ["data", "geometry"],
+        "message": "Pointclouds are not yet supported",
+    }
+
+
+def create_instance(context, data, root, root_index, current_index):
+    return {
+        "status": "ERROR",
+        "path": ["data", "geometry"],
+        "message": "Instances are not yet supported",
+    }
+
+
+def create_mesh(context, object_data, root, root_index, current_index):
+    data_block_name = object_data["DATA"]["NAME"]
+    data_block = bpy.data.meshes.new(data_block_name)
+    object_name = object_data["NAME"]
+    new_obj = bpy.data.objects.new(object_name, data_block)
+
+    from .materialize_blend_loader import load_node_group
+
+    node_group = load_node_group("Materialized Geometry")
+
+    node_modifier: bpy.types.NodesModifier = new_obj.modifiers.new(
+        "Materialize", "NODES"
+    )  # type: ignore
+
+    node_modifier.node_group = node_group
+    node_modifier["Socket_5"] = root
+    node_modifier["Socket_2"] = root_index
+    node_modifier["Socket_3"] = current_index
+
+    depsgraph = context.evaluated_depsgraph_get()
+    # mesh = new_obj.to_mesh(depsgraph=depsgraph, preserve_all_data_layers=True)
+    bm = bmesh.new()
+    bm.from_object(object=new_obj, depsgraph=depsgraph)
+    bm.to_mesh(new_obj.data)
+    new_obj.modifiers.remove(node_modifier)
+    return {"status": "OK", "value": new_obj}
 
 
 def create_object(root, parent, context, object_data, root_index, current_index):
@@ -44,55 +92,55 @@ def create_object(root, parent, context, object_data, root_index, current_index)
     new_obj = None
     match subtype:
         case "ARMATURE":
-            armature_result = create_armature(context, object_data)
-            if armature_result["status"] == "ERROR":
-                return armature_result
-            new_obj = armature_result["value"]
+            result = create_armature(
+                context, object_data, root, root_index, current_index
+            )
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
         case "MESH":
-            pass
+            result = create_mesh(context, object_data, root, root_index, current_index)
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
+        case "CURVE":
+            result = create_curve(context, object_data, root, root_index, current_index)
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
+        case "VOLUME":
+            result = create_volume(
+                context, object_data, root, root_index, current_index
+            )
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
+        case "GREASEPENCIL":
+            result = create_greasepencil(
+                context, object_data, root, root_index, current_index
+            )
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
+        case "POINTCLOUD":
+            result = create_pointcloud(
+                context, object_data, root, root_index, current_index
+            )
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
+        case "INSTANCE":
+            result = create_instance(
+                context, object_data, root, root_index, current_index
+            )
+            if result["status"] == "ERROR":
+                return result
+            new_obj = result["value"]
 
-    if subtype != "ARMATURE":
-        data_block = bpy.data.meshes.new(object_data["DATA"]["NAME"])
-    else:
-        armature_result = create_armature(context, object_data)
-        if armature_result["status"] == "ERROR":
-            return armature_result
-        data_block = armature_result["value"]
-    name = object_data["NAME"]
-    new_obj = bpy.data.objects.new(name, data_block)
     new_obj.parent = parent
     context.collection.objects.link(new_obj)
     new_obj["materialize_name"] = name
     new_obj["materialize_subtype"] = subtype
-
-    if subtype == "ARMATURE":
-        pass
-    else:
-        from .materialize_blend_loader import load_node_group
-
-        node_group = load_node_group("Materialized Geometry")
-
-        node_modifier: bpy.types.NodesModifier = new_obj.modifiers.new(
-            "Materialize", "NODES"
-        )  # type: ignore
-
-        node_modifier.node_group = node_group
-        node_modifier["Socket_5"] = root
-        node_modifier["Socket_2"] = root_index
-        node_modifier["Socket_3"] = current_index
-        if subtype == "MESH":
-            depsgraph = context.evaluated_depsgraph_get()
-            # mesh = new_obj.to_mesh(depsgraph=depsgraph, preserve_all_data_layers=True)
-            bm = bmesh.new()
-            bm.from_object(object=new_obj, depsgraph=depsgraph)
-            bm.to_mesh(new_obj.data)
-            new_obj.modifiers.remove(node_modifier)
-        else:
-            pass
-            # bpy.ops.object.modifier_apply()
-            # bpy.ops.object.convert(target=subtype, )
-
-        new_obj["materialize"] = "CHILD"
     return {"status": "OK", "value": new_obj}
 
 
@@ -173,19 +221,14 @@ def materialize_objects(
     if object_parse_result["status"] == "ERROR":
         return concat_error_path(object_parse_result, child_geometry_set.name)
     errors = []
-    values = object_parse_result["value"]
-    objects = values["CHILDREN"]
-    reference_geometry_data = None
-    if "REFERENCE_GEOMETRY" in values:
-        reference_geometry_data = values["REFERENCE_GEOMETRY"]
-    if reference_geometry_data is not None:
-        # TODO: Materialize reference geometry
-        pass
-    reference_geometry = None
+    objects = object_parse_result["value"]
+
     parents = []
-    print(objects)
     object_0_object_data = objects[0]
     object_0_name = object_0_object_data["NAME"]
+    reference_geometry = None
+    if "REFERENCE_GEOMETRY" in object_0_object_data:
+        reference_geometry = object_0_object_data["REFERENCE_GEOMETRY"]
     existing_object_0 = try_find_in_children(root_obj, object_0_name)
     if existing_object_0 != None:
         result = rematerialize_object(
@@ -230,6 +273,9 @@ def materialize_objects(
             continue
         parent = parents[parent_index]
         existing_object = try_find_in_children(root_obj, name)
+        reference_geometry = None
+        if "REFERENCE_GEOMETRY" in object_data:
+            reference_geometry = object_data["REFERENCE_GEOMETRY"]
         materialize_result = None
         if existing_object is not None:
             materialize_result = rematerialize_object(
