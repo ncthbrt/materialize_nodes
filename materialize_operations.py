@@ -13,33 +13,61 @@ import bmesh
 dir_path = os.path.dirname(__file__)
 
 
-def create_armature_data_block(context, data):
+def create_armature(context, data):
     return {
         "status": "ERROR",
-        "path": ["data"],
+        "path": ["data", "geometry"],
         "message": "Armatures are not yet supported",
+    }
+
+
+def create_curve(context, data):
+    return {
+        "status": "ERROR",
+        "path": ["data", "geometry"],
+        "message": "Curves are not yet supported",
+    }
+
+
+def create_mesh(context, data):
+    data_block = bpy.data.meshes.new(data["DATA"]["NAME"])
+    return {
+        "status": "ERROR",
+        "path": ["data", "geometry"],
+        "message": "Curves are not yet supported",
     }
 
 
 def create_object(root, parent, context, object_data, root_index, current_index):
     data_block = None
-    subtype = object_data["DATA"]["values"]["GEOMETRY"]["subtype"]
+    subtype = object_data["DATA"]["GEOMETRY"]["subtype"]
+    new_obj = None
+    match subtype:
+        case "ARMATURE":
+            armature_result = create_armature(context, object_data)
+            if armature_result["status"] == "ERROR":
+                return armature_result
+            new_obj = armature_result["value"]
+        case "MESH":
+            pass
+
     if subtype != "ARMATURE":
-        data_block = bpy.data.meshes.new(object_data["DATA"]["values"]["NAME"]["value"])
+        data_block = bpy.data.meshes.new(object_data["DATA"]["NAME"])
     else:
-        data_block_result = create_armature_data_block(context, object_data)
-        if data_block_result["status"] == "ERROR":
-            return data_block_result
-        data_block = data_block_result["value"]
-    name = object_data["NAME"]["value"]
+        armature_result = create_armature(context, object_data)
+        if armature_result["status"] == "ERROR":
+            return armature_result
+        data_block = armature_result["value"]
+    name = object_data["NAME"]
     new_obj = bpy.data.objects.new(name, data_block)
     new_obj.parent = parent
     context.collection.objects.link(new_obj)
     new_obj["materialize_name"] = name
-    type = object_data["DATA"]["values"]["GEOMETRY"]["subtype"]
-    new_obj["materialize_type"] = type
+    new_obj["materialize_subtype"] = subtype
 
-    if subtype != "ARMATURE":
+    if subtype == "ARMATURE":
+        pass
+    else:
         from .materialize_blend_loader import load_node_group
 
         node_group = load_node_group("Materialized Geometry")
@@ -65,7 +93,7 @@ def create_object(root, parent, context, object_data, root_index, current_index)
             # bpy.ops.object.convert(target=subtype, )
 
         new_obj["materialize"] = "CHILD"
-    return {"status": "OK", "values": new_obj}
+    return {"status": "OK", "value": new_obj}
 
 
 def update_object(root, parent, context, existing_object, object_data):
@@ -106,7 +134,7 @@ def materialize_object(
     )
     if create_object_result["status"] == "ERROR":
         return create_object_result
-    return {"status": "OK", "values": create_object_result["values"]}
+    return {"status": "OK", "value": create_object_result["value"]}
 
 
 def rematerialize_object(
@@ -121,14 +149,14 @@ def rematerialize_object(
 ):
     data_block_result = update_data_block(context, object_data)
     if data_block_result["status"] == "ERROR":
-        return concat_error_path(data_block_result, object_data["NAME"]["value"])
-    data_block = data_block_result["values"]
+        return concat_error_path(data_block_result, object_data["NAME"])
+    data_block = data_block_result["value"]
     update_object_result = update_object(
         root, parent, context, existing_object, object_data
     )
     if update_object_result["status"] == "ERROR":
         return update_object_result
-    return {"status": "OK", "values": update_object_result["values"]}
+    return {"status": "OK", "value": update_object_result["value"]}
 
 
 def materialize_objects(
@@ -146,7 +174,7 @@ def materialize_objects(
         return concat_error_path(object_parse_result, child_geometry_set.name)
     errors = []
     values = object_parse_result["value"]
-    objects = values["CHILDREN"]["values"]
+    objects = values["CHILDREN"]
     reference_geometry_data = None
     if "REFERENCE_GEOMETRY" in values:
         reference_geometry_data = values["REFERENCE_GEOMETRY"]
@@ -157,7 +185,7 @@ def materialize_objects(
     parents = []
     print(objects)
     object_0_object_data = objects[0]
-    object_0_name = object_0_object_data["NAME"]["value"]
+    object_0_name = object_0_object_data["NAME"]
     existing_object_0 = try_find_in_children(root_obj, object_0_name)
     if existing_object_0 != None:
         result = rematerialize_object(
@@ -172,7 +200,7 @@ def materialize_objects(
         )
         if result["status"] == "ERROR":
             return result
-        parents.append(result["values"])
+        parents.append(result["value"])
     else:
         result = materialize_object(
             root_obj,
@@ -185,11 +213,11 @@ def materialize_objects(
         )
         if result["status"] == "ERROR":
             return result
-        parents.append(result["values"])
+        parents.append(result["value"])
 
     for i in range(1, len(objects)):
         object_data = objects[i]
-        name = object_data["NAME"]["value"]
+        name = object_data["NAME"]
         parent_index = object_data["parent"]
         if parent_index < 0 or parent_index >= len(parents):
             errors.append(
@@ -227,7 +255,7 @@ def materialize_objects(
         if materialize_result["status"] == "ERROR":
             errors.append(materialize_result)
         else:
-            parents.append(materialize_result["values"])
+            parents.append(materialize_result["value"])
     if len(errors) == 0:
         return {"status": "OK"}
     elif len(errors) == 1:
