@@ -256,9 +256,9 @@ def parse_geometry(index, parent_pointcloud, child):
             "path": ["geometry"],
         }
 
-    subtype = get_attribute_value(subtypes, subtypes.data[index])
-    subtype_name = data_block_type_ids[subtype]
-    match subtype_name:
+    subtype_value = get_attribute_value(subtypes, subtypes.data[index])
+    subtype = data_block_type_ids[subtype_value]
+    match subtype:
         case "ARMATURE":
             armature_result = parse_element_bag(
                 "GEOMETRY", index, parent_pointcloud, child
@@ -266,13 +266,11 @@ def parse_geometry(index, parent_pointcloud, child):
             if armature_result["status"] == "ERROR":
                 return concat_error_path(armature_result, "geometry")
             value = armature_result["value"]
-            value["type"] = "GEOMETRY"
-            value["subtype"] = "ARMATURE"
             return {
                 "status": "OK",
                 "type": "GEOMETRY",
                 "subtype": "ARMATURE",
-                "value": value,
+                "value": {"subtype": subtype, "value": value},
             }
         case "CURVE":
             if child.curves is not None:
@@ -280,7 +278,7 @@ def parse_geometry(index, parent_pointcloud, child):
                     "status": "OK",
                     "type": "GEOMETRY",
                     "subtype": "CURVE",
-                    "value": child.curves,
+                    "value": {"subtype": subtype, "value": child.curves.copy()},
                 }
         case "GREASEPENCIL":
             if child.grease_pencil is not None:
@@ -288,7 +286,7 @@ def parse_geometry(index, parent_pointcloud, child):
                     "status": "OK",
                     "type": "GEOMETRY",
                     "subtype": "GREASEPENCIL",
-                    "value": child.curves,
+                    "value": {"subtype": subtype, "value": child.grease_pencil.copy()},
                 }
         case "MESH":
             if child.mesh is not None:
@@ -296,7 +294,7 @@ def parse_geometry(index, parent_pointcloud, child):
                     "status": "OK",
                     "type": "GEOMETRY",
                     "subtype": "MESH",
-                    "value": child.mesh,
+                    "value": {"subtype": subtype, "value": child.mesh.copy()},
                 }
         case "POINTCLOUD":
             if child.pointcloud is not None:
@@ -304,7 +302,7 @@ def parse_geometry(index, parent_pointcloud, child):
                     "status": "OK",
                     "type": "GEOMETRY",
                     "subtype": "POINTCLOUD",
-                    "value": child.pointcloud,
+                    "value": {"subtype": subtype, "value": child.pointcloud.copy()},
                 }
         case "VOLUME":
             if child.volume is not None:
@@ -312,7 +310,7 @@ def parse_geometry(index, parent_pointcloud, child):
                     "status": "OK",
                     "type": "GEOMETRY",
                     "subtype": "VOLUME",
-                    "value": child.volume,
+                    "value": {"subtype": subtype, "value": child.volume.copy()},
                 }
         case "INSTANCE":
             instance_references = child.instance_references()
@@ -324,8 +322,9 @@ def parse_geometry(index, parent_pointcloud, child):
                         "type": "GEOMETRY",
                         "subtype": "INSTANCE",
                         "value": {
-                            "pointcloud": instances_pointcloud,
-                            "references": instance_references,
+                            "subtype": subtype,
+                            "pointcloud": instances_pointcloud.copy(),
+                            "references": instance_references.copy(),
                         },
                     },
                 }
@@ -401,43 +400,19 @@ def parse_reference_geometry(index, parent_pointcloud, child):
     }
 
 
-def parse_root_object(index, _parent_pointcloud, child):
-    pointcloud = child.instances_pointcloud()
-    instance_references = child.instance_references()
+def parse_objects(parent):
+    pointcloud = parent.instances_pointcloud()
+    instance_references: list = parent.instance_references()
     if pointcloud is None or instance_references is None:
-        return {
-            "status": "ERROR",
-            "message": "Malformed data",
-            "path": [child.name],
-        }
+        return {"status": "ERROR", "message": "Malformed data", "path": []}
     reference_indices = pointcloud.attributes[".reference_index"]
-    attributes_result = parse_attributes(index, pointcloud, child)
-    if attributes_result["status"] == "ERROR":
-        return concat_error_path(attributes_result, "object")
-    values = {}
-    concat_to_values(attributes_result, values)
-
+    values = []
     for i in reference_indices.data:
         child = instance_references[i.value]
-        element_result = parse_element(i.value, pointcloud, child)
-        if element_result["status"] == "ERROR":
-            return concat_error_path(element_result, child.name)
-        concat_to_values(element_result, values)
+        object_result = parse_object(i.value, pointcloud, child)
+        if object_result["status"] == "ERROR":
+            return concat_error_path(object_result, child.name)
 
-    objects = []
-    if "CHILDREN" not in values:
-        objects = []
-    else:
-        objects = values["CHILDREN"]
-        del values["CHILDREN"]
-    if values["DATA"] is None:
-        return {
-            "status": "ERROR",
-            "message": "Missing data",
-            "path": ["data"],
-        }
-    objects.insert(
-        0,
-        values,
-    )
-    return {"status": "OK", "type": "OBJECT", "value": objects}
+        values.append(object_result["value"])
+
+    return {"status": "OK", "type": "OBJECTS", "value": values}

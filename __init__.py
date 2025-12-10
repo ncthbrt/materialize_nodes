@@ -13,6 +13,8 @@ from .materialize_blend_loader import create_or_update_linked_lib
 geo_node_group_cache = {}
 node_menu_list = []
 custom_node_groups = []
+dynamic_addon_classes = []
+
 
 dir_path = os.path.dirname(__file__)
 
@@ -72,34 +74,60 @@ class NODE_OT_group_add(Operator):
     def execute(self, context):
         from .materialize_blend_loader import load_node_group
 
-        if not self.is_custom_node:
-            bpy.ops.node.add_node(type="GeometryNodeGroup")
-            node = context.selected_nodes[0]
-            node.node_tree = load_node_group(self.group_name)
-        else:
-            from .custom_nodes import custom_nodes
-
-            bpy.ops.node.add_node(type=custom_nodes[self.group_name].bl_idname)
+        bpy.ops.node.add_node(type=self.group_name)
         bpy.ops.transform.translate("INVOKE_DEFAULT")
         return {"FINISHED"}
 
 
 def get_addon_classes():
+    global dynamic_addon_classes
     """gather all classes of this plugin that have to be reg/unreg"""
     from .materialize_operations import classes as materialize_operation_classes
     from .custom_nodes import classes as custom_node_classes
 
     these_classes = (NODE_OT_group_add, NODE_MT_mtlz_geo_menu)
-    classes = these_classes + materialize_operation_classes + custom_node_classes
+    classes = (
+        these_classes
+        + materialize_operation_classes
+        + custom_node_classes
+        + tuple(dynamic_addon_classes)
+    )
     return classes
 
 
 def node_menu_generator():
+    from .custom_nodes.basic_template_node import MTLZ_NG_GN_BasicTemplateNode
+    from .custom_nodes import custom_nodes
+
     global node_menu_list
     global geo_node_group_cache
+    global dynamic_addon_classes
+
     node_menu_list = []
-    for item in geo_node_group_cache.items():
-        item = item
+    for category in geo_node_group_cache.items():
+        category = category
+
+        def get_bl_idname(group):
+            global geo_node_group_cache
+            bl_idname = "MTLZ_NG_GN_" + group["name"]
+            bl_idname = bl_idname.replace(" ", "_")
+            return bl_idname
+
+        for group in geo_node_group_cache[category[0]]["items"]:
+            if group["name"] not in custom_nodes:
+                bl_idname = get_bl_idname(group)
+                node_type = type(
+                    bl_idname,
+                    (MTLZ_NG_GN_BasicTemplateNode,),
+                    {
+                        "bl_idname": bl_idname,
+                        "color_tag": geo_node_group_cache[category[0]]["color_tag"],
+                        "bl_label": group["name"],
+                        "node_group": group["name"],
+                    },
+                )
+                bpy.utils.register_class(node_type)
+                dynamic_addon_classes.append(node_type)
 
         def custom_draw(self, context):
             layout = self.layout
@@ -107,6 +135,12 @@ def node_menu_generator():
             for group in geo_node_group_cache[self.bl_label]["items"]:
                 icon = group["icon"]
                 props = None
+                #             class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
+                # bl_idname = "MTLZ_NG_GN_Target"
+                # bl_label = "External Target"
+                # bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
+                # tree_type = "GeometryNodeTree"
+                # color_tag = "COLOR"
 
                 if icon in icons:
                     props = layout.operator(
@@ -118,25 +152,28 @@ def node_menu_generator():
                     props = layout.operator(
                         NODE_OT_group_add.bl_idname, text=group["name"], icon=icon
                     )
-                from .custom_nodes import custom_nodes
-
-                props.group_name = group["name"]
-                props.is_custom_node = group["name"] in custom_nodes
+                if group["name"] in custom_nodes:
+                    props.group_name = custom_nodes[group["name"]]
+                else:
+                    props.group_name = get_bl_idname(group)
 
         menu_type = type(
-            "NODE_MT_category_" + item[0],
+            "NODE_MT_category_" + category[0],
             (bpy.types.Menu,),
             {
                 "bl_idname": "NODE_MT_category_"
-                + item[0].replace(
+                + category[0].replace(
                     " ", "_"
                 ),  # replace whitespace with uderscore to avoid alpha-numeric suffix warning
                 "bl_space_type": "NODE_EDITOR",
-                "bl_label": item[0],
+                "bl_label": category[0],
                 "draw": custom_draw,
             },
         )
+
         if menu_type not in node_menu_list:
+            bpy.utils.register_class(menu_type)
+            dynamic_addon_classes.append(menu_type)
 
             def generate_menu_draw(
                 name, label, icon
@@ -146,12 +183,11 @@ def node_menu_generator():
 
                 return draw_menu
 
-            bpy.utils.register_class(menu_type)
             bpy.types.NODE_MT_mtlz_geo_menu.append(
                 generate_menu_draw(
                     menu_type.bl_idname,
                     menu_type.bl_label,
-                    get_icons()[item[1]["icon"]].icon_id,
+                    get_icons()[category[1]["icon"]].icon_id,
                 )
             )
             node_menu_list.append(menu_type)
