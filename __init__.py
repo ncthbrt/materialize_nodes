@@ -69,11 +69,9 @@ class NODE_OT_group_add(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.space_data.node_tree
+        return context.space_data != None and context.space_data.node_tree
 
     def execute(self, context):
-        from .materialize_blend_loader import load_node_group
-
         bpy.ops.node.add_node(type=self.group_name)
         bpy.ops.transform.translate("INVOKE_DEFAULT")
         return {"FINISHED"}
@@ -87,10 +85,10 @@ def get_addon_classes():
 
     these_classes = (NODE_OT_group_add, NODE_MT_mtlz_geo_menu)
     classes = (
-        these_classes
-        + materialize_operation_classes
+        materialize_operation_classes
         + custom_node_classes
         + tuple(dynamic_addon_classes)
+        + these_classes
     )
     return classes
 
@@ -121,6 +119,7 @@ def node_menu_generator():
                     (MTLZ_NG_GN_BasicTemplateNode,),
                     {
                         "bl_idname": bl_idname,
+                        "bl_description": group["description"],
                         "color_tag": geo_node_group_cache[category[0]]["color_tag"],
                         "bl_label": group["name"],
                         "node_group": group["name"],
@@ -135,13 +134,6 @@ def node_menu_generator():
             for group in geo_node_group_cache[self.bl_label]["items"]:
                 icon = group["icon"]
                 props = None
-                #             class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
-                # bl_idname = "MTLZ_NG_GN_Target"
-                # bl_label = "External Target"
-                # bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
-                # tree_type = "GeometryNodeTree"
-                # color_tag = "COLOR"
-
                 if icon in icons:
                     props = layout.operator(
                         NODE_OT_group_add.bl_idname,
@@ -153,7 +145,7 @@ def node_menu_generator():
                         NODE_OT_group_add.bl_idname, text=group["name"], icon=icon
                     )
                 if group["name"] in custom_nodes:
-                    props.group_name = custom_nodes[group["name"]]
+                    props.group_name = custom_nodes[group["name"]].bl_idname
                 else:
                     props.group_name = get_bl_idname(group)
 

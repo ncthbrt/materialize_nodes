@@ -2,7 +2,7 @@ import bpy
 
 
 class MTLZ_NG_GN_BasicTemplateNode(bpy.types.GeometryNodeCustomGroup):
-    node_group = ""
+    node_group = None
 
     @classmethod
     def poll(cls, context: bpy.types.Context):
@@ -17,7 +17,7 @@ class MTLZ_NG_GN_BasicTemplateNode(bpy.types.GeometryNodeCustomGroup):
 
         ng = load_node_group(self.node_group)
         self.node_tree = ng
-        self.width = 250
+        self.width = ng.default_group_node_width        
 
         return None
 

@@ -10,8 +10,8 @@ def filter_materialize_obj(self, obj):
     return obj.type == "ARMATURE"
 
 
-class MTLZ_NG_GN_Target(bpy.types.GeometryNodeCustomGroup):
-    bl_idname = "MTLZ_NG_GN_Target"
+class MTLZ_NG_GN_ExternalTarget(bpy.types.GeometryNodeCustomGroup):
+    bl_idname = "MTLZ_NG_GN_ExternalTarget"
     bl_label = "External Target"
     bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
     tree_type = "GeometryNodeTree"

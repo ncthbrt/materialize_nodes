@@ -5,10 +5,12 @@
         "items": [
             {
                 "name": "Bone",
+                "description": "Creates a Bone",
                 "icon": "bone_data"
             },
             {
                 "name": "Parent Bones",
+                "description": "Adds the child bones to the parent and outputs the modified parent bone",
                 "icon": "parent_bone_data"
             }
         ]
@@ -19,10 +21,12 @@
         "items": [
             {
                 "name": "Bone Matrix from Head/Tail",
+                "description": "Retrieves the bone head and tail from a bone transformation matrix",
                 "icon": "matrix_utility"
             },
             {
                 "name": "Bone Matrix to Head/Tail",
+                "description": "Converts a Bone Matrix into the corresponding head and tail positions",
                 "icon": "axes_utility"
             }
         ]
@@ -33,10 +37,12 @@
         "items": [
             {
                 "name": "Assign Weights to Vertex Group",
+                "description": "Assigns vertex group weights to points in mesh",
                 "icon": "assign_weights_data"
             },
             {
                 "name": "Vertex Group",
+                "description": "Creates a vertex group",
                 "icon": "vertex_group_data"
             }
         ]
@@ -47,10 +53,12 @@
         "items": [
             {
                 "name": "Object",
+                "description": "Creates an Object",
                 "icon": "object_object"
             },
             {
                 "name": "Parent Objects",
+                "description": "Adds the child objects to the parent and outputs the modified parent object",
                 "icon": "parent_object_object"
             }
         ]
@@ -61,10 +69,12 @@
         "items": [
             {
                 "name": "Constraint",
+                "description": "Creates a Constraint",
                 "icon": "constraint_stack"
             },
             {
                 "name": "Modifier",
+                "description": "Creates a Modifier",
                 "icon": "modifier_stack"
             }
         ]
@@ -75,18 +85,22 @@
         "items": [
             {
                 "name": "Target",
+                "description": "Creates a Target, a type used to set targets for entities in constraints and modifiers",
                 "icon": "target_reference"
             },
             {
                 "name": "External Target",
+                "description": "Creates a Target from an object or bone external to this node network",
                 "icon": "external_target_reference"
             },
             {
                 "name": "Space",
+                "description": "A transform space used in constraints and modifiers",
                 "icon": "space_reference"
             },
             {
                 "name": "Selection",
+                "description": "A selection of a set of geometry data",
                 "icon": "selection_reference"
             }
         ]
@@ -97,14 +111,22 @@
         "items": [
             {
                 "name": "Falloff",
+                "description": "Falloff is used to control attenuation of constraints and modifiers",
                 "icon": "falloff_value"
             },
             {
+                "name": "Geometry Node",
+                "description": "The Geometry Node node is used to to create a geometry node modifier for objects",
+                "icon": "geometry_node_value"
+            },
+            {
                 "name": "Mapping Curve",
+                "description": "A mapping curve is used to specify a custom falloff attenuation",
                 "icon": "mapping_value"
             },
             {
                 "name": "Profile Curve",
+                "description": "Creates a profile curve for use in modifiers",
                 "icon": "profile_curve_value"
             }
         ]
