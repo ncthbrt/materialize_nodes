@@ -35,7 +35,6 @@ class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
     bl_width_default = 300
 
     tree_type = "GeometryNodeTree"
-    color_tag = "INPUT"
     initialized: bpy.props.BoolProperty(name="Initialized")
 
     def __init__(self, strct=None) -> None:
@@ -58,6 +57,7 @@ class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
         self.node_tree = node_group.copy()
         self.width = 300
         self.initialized = True
+        self.color_tag = "INPUT"
         self.register_busses()
         return None
 

@@ -69,7 +69,10 @@ class NODE_OT_group_add(Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.space_data != None and context.space_data.node_tree
+        return (
+            context.space_data.type == "NODE_EDITOR"
+            and context.space_data.tree_type == "GeometryNodeTree"
+        )
 
     def execute(self, context):
         bpy.ops.node.add_node(type=self.group_name)
