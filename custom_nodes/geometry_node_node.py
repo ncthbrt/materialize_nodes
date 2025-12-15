@@ -1,5 +1,6 @@
 import bpy
 import mathutils
+from .utils.nodetree_interface_utils import copy_interface_input_items
 
 exclude_nodes = (
     "Materialize Template [materialize.blend]",
@@ -13,11 +14,10 @@ def filter_node_group(self, obj: bpy.types.NodeTree):
     return False
 
 
-class MTLZ_NG_GN_GeometryNodeNode(bpy.types.GeometryNodeCustomGroup):
+class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_GeometryNodeNode"
     bl_label = "Geometry Node"
     bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
-    tree_type = "GeometryNodeTree"
     initialized: bpy.props.BoolProperty(name="Initialized")
     color_tag = "INPUT"
 
@@ -87,52 +87,6 @@ class MTLZ_NG_GN_GeometryNodeNode(bpy.types.GeometryNodeCustomGroup):
         self.node_tree.links.new(output=prev_socket, input=prepare_node_group.inputs[0])
         prepare_node_group.inputs[1].default_value = self.referenced_node_tree.name_full
 
-    def copy_interface_input_items(
-        self,
-        source_interface: bpy.types.NodeTreeInterface,
-        target_interface: bpy.types.NodeTreeInterface,
-    ):
-        target_stack = []
-        source_stack = []
-        seen_geometry_input = False
-        for item in source_interface.items_tree:
-            if item.item_type == "PANEL":
-                has_input = False
-                for subitem in item.interface_items:
-                    if subitem.item_type == "SOCKET" and subitem.in_out == "INPUT":
-                        has_input = True
-                        break
-                if not has_input:
-                    continue
-                panel = target_interface.new_panel(
-                    name=item.name,
-                    description=item.description,
-                    default_closed=item.default_closed,
-                )
-                if len(source_stack) == 0:
-                    source_stack.append(item)
-                    target_stack.append(panel)
-                elif source_stack[-1] == item.parent:
-                    source_stack.append(item)
-                    target_stack.append(panel)
-                    target_interface.move_to_parent(
-                        panel, target_stack[-1], len(target_stack[-1].interface_items)
-                    )
-                elif item.parent.name != "":
-                    source_stack.pop()
-                    target_stack.pop()
-            elif item.item_type == "SOCKET":
-                if item.in_out == "OUTPUT":
-                    continue
-                if item.socket_type == "NodeSocketGeometry" and not seen_geometry_input:
-                    seen_geometry_input = True
-                    continue
-                socket: bpy.types.NodeTreeInterfaceSocket = target_interface.copy(item)
-                if len(target_stack) > 0:
-                    target_interface.move_to_parent(
-                        socket, target_stack[-1], len(target_stack[-1].interface_items)
-                    )
-
     def clear_node_group(self):
         for item in reversed(self.node_tree.interface.items_tree):
             if item.item_type == "SOCKET" and item.in_out == "OUTPUT":
@@ -147,7 +101,7 @@ class MTLZ_NG_GN_GeometryNodeNode(bpy.types.GeometryNodeCustomGroup):
         if self.referenced_node_tree == None:
             return
 
-        self.copy_interface_input_items(
+        copy_interface_input_items(
             self.referenced_node_tree.interface, self.node_tree.interface
         )
 
@@ -222,3 +176,6 @@ class MTLZ_NG_GN_GeometryNodeNode(bpy.types.GeometryNodeCustomGroup):
 
     def draw_panel(self, layout, context):
         return None
+
+    def free(self):
+        bpy.data.node_groups.remove(self.node_tree)

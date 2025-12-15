@@ -102,6 +102,26 @@
                 "name": "Selection",
                 "description": "A selection of a set of geometry data",
                 "icon": "selection_reference"
+            },
+            {
+                "name": "Object Reference",
+                "description": "A reference to an object not managed by Materialize",
+                "icon": "selection_reference"
+            },
+            {
+                "name": "Image Reference",
+                "description": "A reference to an image",
+                "icon": "selection_reference"
+            },
+            {
+                "name": "Collection Reference",
+                "description": "A reference to a collection",
+                "icon": "selection_reference"
+            },
+            {
+                "name": "Material Reference",
+                "description": "A reference to a material not managed by Materialize",
+                "icon": "selection_reference"
             }
         ]
     },
@@ -123,6 +143,11 @@
                 "name": "Mapping Curve",
                 "description": "A mapping curve is used to specify a custom falloff attenuation",
                 "icon": "mapping_value"
+            },
+            {
+                "name": "New Material",
+                "description": "Creates a material from a material tree",
+                "icon": "material_tree_value"
             },
             {
                 "name": "Profile Curve",

@@ -44,8 +44,6 @@ class MTLZ_NG_GN_ProfileCurve(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_ProfileCurve"
     bl_label = "Profile Curve"
     bl_description = """Creates a profile curve to control the profile of modifiers and constraints"""
-
-    tree_type = "GeometryNodeTree"
     color_tag = "INPUT"
 
     def profile_object_updated(self, context):

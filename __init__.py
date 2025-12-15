@@ -8,7 +8,10 @@ import os
 from bpy.types import Operator, Menu, NODE_MT_add
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
 from .custom_icons import get_icons, load_icons
-from .materialize_blend_loader import create_or_update_linked_lib
+from .materialize_blend_loader import (
+    create_or_update_linked_lib,
+    create_or_update_linked_template_lib,
+)
 
 geo_node_group_cache = {}
 node_menu_list = []
@@ -214,6 +217,10 @@ def register():
 
     bpy.app.handlers.load_factory_startup_post.append(create_or_update_linked_lib)
     bpy.app.handlers.load_post.append(create_or_update_linked_lib)
+    bpy.app.handlers.load_factory_startup_post.append(
+        create_or_update_linked_template_lib
+    )
+    bpy.app.handlers.load_post.append(create_or_update_linked_template_lib)
 
     registered = True
     return None

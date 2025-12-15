@@ -34,7 +34,6 @@ class MTLZ_NG_GN_MappingCurve(bpy.types.GeometryNodeCustomGroup):
     bl_description = """Creates a mapping curve to control the area of effect of modifiers and constraints"""
     bl_width_default = 300
 
-    tree_type = "GeometryNodeTree"
     initialized: bpy.props.BoolProperty(name="Initialized")
 
     def __init__(self, strct=None) -> None:

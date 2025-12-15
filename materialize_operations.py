@@ -190,9 +190,10 @@ class Modifier_OT_MaterializeOperator(Operator):
         materialize_result = materialize(obj, context)
         if materialize_result["status"] == "ERROR":
             msg = materialize_result["message"]
+            formatted_errors = format_errors(materialize_result["errors"])
             self.report(
                 {"ERROR_INVALID_INPUT"},
-                f"{msg}\n" + format_errors(materialize_result["errors"]),
+                f"{msg}\n{formatted_errors}",
             )
         obj.data["materialized"] = True
         return {"FINISHED"}
@@ -248,14 +249,13 @@ class OBJ_OT_template_group_add(Operator):
         return result == False
 
     def execute(self, context):
-        from .materialize_blend_loader import load_node_group
+        from .materialize_blend_loader import load_node_group, load_template_node_group
 
         ob = context.object
         index = len(ob.modifiers)
         ob.modifiers.new("Materialize", "NODES")
         modifier = ob.modifiers[index]
-        template_name = "Materialize Template"
-        copy = load_node_group(template_name).copy()
+        copy = load_template_node_group("Materialize Template").copy()
         name = f"{ob.name} Materalize Group"
         copy.name = name
         modifier.node_group = copy

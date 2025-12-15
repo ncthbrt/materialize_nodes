@@ -1,5 +1,4 @@
 import bpy
-import mathutils
 
 
 def filter_materialize_obj(self, obj):
@@ -14,7 +13,6 @@ class MTLZ_NG_GN_ExternalTarget(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_ExternalTarget"
     bl_label = "External Target"
     bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
-    tree_type = "GeometryNodeTree"
     color_tag = "COLOR"
 
     def update_signal(self, context):
@@ -80,8 +78,7 @@ class MTLZ_NG_GN_ExternalTarget(bpy.types.GeometryNodeCustomGroup):
 
         from ..materialize_blend_loader import load_node_group
 
-        node_group = load_node_group("MTLZ_External Target")
-        self.node_tree = node_group.copy()
+        self.node_tree = load_node_group("MTLZ_External Target").copy()
         self.width = 250
 
         return None
@@ -93,7 +90,7 @@ class MTLZ_NG_GN_ExternalTarget(bpy.types.GeometryNodeCustomGroup):
         def delayed_copy():
             self.target_type = node.target_type
             self.subtarget = node.subtarget
-            self.node_tree = node.node_tree
+            self.node_tree = node.node_tree.copy()
 
         bpy.app.timers.register(delayed_copy, first_interval=0.01)
 
