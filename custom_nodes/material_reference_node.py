@@ -13,6 +13,7 @@ class MTLZ_NG_GN_MaterialReference(MTLZ_NG_GN_BaseReference):
     bl_description = """A reference to a material not managed by Materialize"""
     color_tag = "COLOR"
     type_label = "Material"
+    reference_type = 3
 
     value: bpy.props.PointerProperty(
         type=bpy.types.Material,

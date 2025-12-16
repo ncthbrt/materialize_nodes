@@ -8,11 +8,15 @@ def filter_materialize_obj(self, obj):
 
 
 def update_node(custom_node, context):
-    node = custom_node.node_tree.nodes["Name"]
+    node: bpy.types.FunctionNodeInputString = custom_node.node_tree.nodes[
+        "ReferenceValue"
+    ]
     if custom_node.value != None:
-        node.inputs[0].default_value = custom_node.value.name
+        node.string = custom_node.value.name
     else:
-        node.inputs[0].default_value = ""
+        node.string = ""
+    node = custom_node.node_tree.nodes["ReferenceType"]
+    node.integer = custom_node.reference_type
     return None
 
 

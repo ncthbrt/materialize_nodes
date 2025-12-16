@@ -13,6 +13,7 @@ class MTLZ_NG_GN_CollectionReference(MTLZ_NG_GN_BaseReference):
     bl_description = """A reference to a collection"""
     color_tag = "COLOR"
     type_label = "Collection"
+    reference_type = 1
 
     value: bpy.props.PointerProperty(
         type=bpy.types.Collection,

@@ -13,6 +13,7 @@ class MTLZ_NG_GN_ObjectReference(MTLZ_NG_GN_BaseReference):
     bl_description = """A reference to an object that is not managed by materialize"""
     color_tag = "COLOR"
     type_label = "Object"
+    reference_type = 4
 
     value: bpy.props.PointerProperty(
         type=bpy.types.Object,

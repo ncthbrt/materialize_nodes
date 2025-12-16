@@ -106,22 +106,22 @@
             {
                 "name": "Object Reference",
                 "description": "A reference to an object not managed by Materialize",
-                "icon": "selection_reference"
+                "icon": "object_reference"
             },
             {
                 "name": "Image Reference",
                 "description": "A reference to an image",
-                "icon": "selection_reference"
+                "icon": "image_reference"
             },
             {
                 "name": "Collection Reference",
                 "description": "A reference to a collection",
-                "icon": "selection_reference"
+                "icon": "collection_reference"
             },
             {
                 "name": "Material Reference",
                 "description": "A reference to a material not managed by Materialize",
-                "icon": "selection_reference"
+                "icon": "material_reference"
             }
         ]
     },

@@ -47,6 +47,7 @@ class MTLZ_NG_GN_NewMaterial(bpy.types.GeometryNodeCustomGroup):
         self.node_tree = bpy.data.node_groups.new(
             name=f"{self.name} Impl", type="GeometryNodeTree"
         )  # type: ignore
+        self.node_tree.color_tag = "INPUT"
         self.width = 250
 
         return None

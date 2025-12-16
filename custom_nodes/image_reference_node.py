@@ -13,6 +13,7 @@ class MTLZ_NG_GN_ImageReference(MTLZ_NG_GN_BaseReference):
     bl_description = """A reference to an image"""
     color_tag = "COLOR"
     type_label = "Image"
+    reference_type = 2
 
     value: bpy.props.PointerProperty(
         type=bpy.types.Image,
