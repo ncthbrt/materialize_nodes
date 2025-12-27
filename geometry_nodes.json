@@ -68,11 +68,6 @@
         "icon": "properties_stack",
         "items": [
             {
-                "name": "Constraint",
-                "description": "Creates a Constraint",
-                "icon": "constraint_stack"
-            },
-            {
                 "name": "Modifier",
                 "description": "Creates a Modifier",
                 "icon": "modifier_stack"
@@ -85,7 +80,7 @@
         "items": [
             {
                 "name": "Target",
-                "description": "Creates a Target, a type used to set targets for entities in constraints and modifiers",
+                "description": "Creates a Target, a type used to set targets for entities in modifiers",
                 "icon": "target_reference"
             },
             {
@@ -95,7 +90,7 @@
             },
             {
                 "name": "Space",
-                "description": "A transform space used in constraints and modifiers",
+                "description": "A transform space used in modifiers",
                 "icon": "space_reference"
             },
             {
@@ -131,7 +126,7 @@
         "items": [
             {
                 "name": "Falloff",
-                "description": "Falloff is used to control attenuation of constraints and modifiers",
+                "description": "Falloff is used to control attenuation of modifiers",
                 "icon": "falloff_value"
             },
             {

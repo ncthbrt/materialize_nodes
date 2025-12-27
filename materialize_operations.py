@@ -6,8 +6,7 @@ from bpy.types import (
 from bpy.props import StringProperty, EnumProperty, BoolProperty, PointerProperty
 import bl_ui.properties_data_modifier
 from .utils import get_evaluated_geometry, is_materialize_modifier, is_materialize_child
-from .parse_utils import concat_error_path, parse_objects
-import bmesh
+from .parsing import concat_error_path, parse_objects
 
 
 def update_armature(context, armature_data_block, object_data):
