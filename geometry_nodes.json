@@ -68,6 +68,11 @@
         "icon": "properties_stack",
         "items": [
             {
+                "name": "Constraint",
+                "description": "Creates a Constraint",
+                "icon": "constraint_stack"
+            },
+            {
                 "name": "Modifier",
                 "description": "Creates a Modifier",
                 "icon": "modifier_stack"

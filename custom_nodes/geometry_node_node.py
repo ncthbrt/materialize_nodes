@@ -17,7 +17,7 @@ def filter_node_group(self, obj: bpy.types.NodeTree):
 class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_GeometryNodeNode"
     bl_label = "Geometry Node"
-    bl_description = """Creates a target to reference objects and bones that are not managed by materialize"""
+    bl_description = """A node that creates a lazily evaluated geometry node group"""
     initialized: bpy.props.BoolProperty(name="Initialized")
     color_tag = "INPUT"
 
@@ -62,7 +62,7 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
                         )
                         name_socket: bpy.types.NodeSocketString = (
                             geometry_node_group.inputs[1]
-                        )
+                        )  # type: ignore
                         name_socket.default_value = output.name
                         input_socket = geometry_node_group.inputs[0]
                         self.node_tree.links.new(input=input_socket, output=prev_socket)
