@@ -18,7 +18,7 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
     bl_idname = "MTLZ_NG_GN_GeometryNodeNode"
     bl_label = "Geometry Node"
     bl_description = """A node that creates a lazily evaluated geometry node group"""
-    initialized: bpy.props.BoolProperty(name="Initialized")
+    initialized: bpy.props.BoolProperty(name="Initialized")  # type: ignore
     color_tag = "INPUT"
 
     def __init__(self, strct=None) -> None:
@@ -53,6 +53,7 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
                         | "VALUE"
                         | "VECTOR"
                         | "STRING"
+                        | "GEOMETRY"
                     ):
                         group = load_node_group(f"MTLZ_Node Store {output.type}")
                         geometry_node_group: bpy.types.GeometryNodeGroup = self.node_tree.nodes.new("GeometryNodeGroup")  # type: ignore
@@ -63,7 +64,7 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
                         name_socket: bpy.types.NodeSocketString = (
                             geometry_node_group.inputs[1]
                         )  # type: ignore
-                        name_socket.default_value = output.name
+                        name_socket.default_value = output.identifier
                         input_socket = geometry_node_group.inputs[0]
                         self.node_tree.links.new(input=input_socket, output=prev_socket)
                         input_socket = geometry_node_group.inputs[2]
@@ -73,7 +74,11 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
                         )
                         prev_socket = geometry_node_group.outputs[0]
                     case "IMAGE" | "MATERIAL" | "OBJECT":
-                        print("UNSUPPORTED YET")
+                        error = AssertionError()
+                        error.add_note(
+                            "Image, material, or object socket types are not expected here"
+                        )
+                        raise error
         prepare_node = load_node_group("MTLZ_Prepare Geometry Node")
         prepare_node_group: bpy.types.GeometryNodeGroup = self.node_tree.nodes.new("GeometryNodeGroup")  # type: ignore
         prepare_node_group.node_tree = prepare_node
@@ -95,22 +100,32 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
 
         for node in reversed(self.node_tree.nodes):
             self.node_tree.nodes.remove(node)
+        for k in self.keys():
+            del self[k]
 
     def update_node_group(self, context):
+        if self.prev_referenced_node_tree == self.referenced_node_tree:
+            return
         self.clear_node_group()
         if self.referenced_node_tree == None:
             return
-
+        self.prev_referenced_node_tree = self.referenced_node_tree
         copy_interface_input_items(
-            self.referenced_node_tree.interface, self.node_tree.interface
+            self.referenced_node_tree.interface, self.node_tree.interface, self
         )
-
         self.setup_connections_and_outputs()
 
     def update_signal(self, context):
         if self.initialized:
             self.update_node_group(context)
 
+    prev_referenced_node_tree = bpy.props.PointerProperty(
+        type=bpy.types.NodeTree,
+        name="Prev Node Tree",
+        description="The node tree that was previously linked",
+        update=update_signal,
+        poll=filter_node_group,
+    )
     referenced_node_tree: bpy.props.PointerProperty(
         type=bpy.types.NodeTree,
         name="Node Tree",
@@ -148,7 +163,10 @@ class MTLZ_NG_GN_GeometryNode(bpy.types.GeometryNodeCustomGroup):
         # NOTE: copy/paste can cause crashes, we use a timer to delay the action
         def delayed_copy():
             self.referenced_node_tree = node.referenced_node_tree
+            self.prev_referenced_node_tree = node.prev_referenced_node_tree
             self.node_tree = self.node_tree.copy()
+            for k in node.keys():
+                self[k] = node[k]
 
         bpy.app.timers.register(delayed_copy, first_interval=0.01)
 

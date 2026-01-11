@@ -4,6 +4,7 @@ import bpy
 def copy_interface_input_items(
     source_interface: bpy.types.NodeTreeInterface,
     target_interface: bpy.types.NodeTreeInterface,
+    mapping: bpy.types.CollectionProperty,
 ):
     target_stack = []
     source_stack = []
@@ -39,9 +40,6 @@ def copy_interface_input_items(
         elif item.item_type == "SOCKET":
             if item.in_out == "OUTPUT":
                 continue
-            if item.socket_type == "NodeSocketGeometry" and not seen_geometry_input:
-                seen_geometry_input = True
-                continue
             socket = None
             match item.socket_type:
                 case (
@@ -56,10 +54,11 @@ def copy_interface_input_items(
                             item.name, in_out="INPUT", socket_type="NodeSocketGeometry"
                         )
                     )
-                case default:
+                case _:
                     socket: bpy.types.NodeTreeInterfaceSocket = target_interface.copy(
                         item
                     )  # type: ignore
+            mapping[socket.identifier] = item.socket_type
             if len(target_stack) > 0:
                 target_interface.move_to_parent(
                     socket,
